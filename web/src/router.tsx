@@ -220,6 +220,26 @@ const routeTree = rootRoute.addChildren([
 export const router = createRouter({
   routeTree,
   defaultPreload: "intent",
+  defaultViewTransition: {
+    types: ({ fromLocation, toLocation, pathChanged }) => {
+      // Search-only updates (project filters, tabs) must not animate.
+      if (!pathChanged) return false;
+
+      const fromPath = fromLocation?.pathname ?? "";
+      const toPath = toLocation.pathname;
+
+      if (toPath.startsWith("/revisions/") && !fromPath.startsWith("/revisions/")) {
+        return ["nav-forward"];
+      }
+
+      if (fromPath.startsWith("/revisions/") && !toPath.startsWith("/revisions/")) {
+        return ["nav-back"];
+      }
+
+      // Lateral moves between workbench sections use the plain cross-fade.
+      return [];
+    },
+  },
 });
 
 declare module "@tanstack/react-router" {

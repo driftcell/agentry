@@ -1,13 +1,22 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Copy, Download, ExternalLink, ListTree, Search } from "lucide-react";
 import { CopyableHash } from "@/components/CopyableHash";
+import { FadeTransition } from "@/components/FadeTransition";
 import { EmptyPanel, ErrorPanel, LoadingPanel } from "@/components/StateViews";
 import { WorkspaceFileTree, useExpandedDirs } from "@/components/WorkspaceFileTree";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  ComboboxValue,
+} from "@/components/ui/combobox";
+import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { firstLine, formatBytes, formatTokens, shortUuid } from "@/lib/format";
@@ -30,6 +39,11 @@ const KIND_FILTERS: ReadonlyArray<{ id: FileKindFilter; label: string }> = [
 
 const INITIAL_LINE_LIMIT = 800;
 
+async function fetchWorkspace(slug: string) {
+  const [workspace, detail] = await Promise.all([api.workspace(slug), api.projectDetail(slug)]);
+  return { workspace, detail };
+}
+
 export function ExplorerPage({
   projectSlugOverride,
   initialPath,
@@ -40,7 +54,11 @@ export function ExplorerPage({
   onProjectChange?: (slug: string) => void;
 }) {
   const { projects, selectedProjectSlug, setSelectedProjectSlug } = useAuth();
+  const queryClient = useQueryClient();
+  const [, startTransition] = useTransition();
   const activeSlug = projectSlugOverride || selectedProjectSlug;
+  const projectOptions = projects.map((p) => ({ value: p.slug, label: p.slug }));
+  const activeProjectOption = projectOptions.find((p) => p.value === activeSlug) ?? null;
 
   const [kindFilter, setKindFilter] = useState<FileKindFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -52,13 +70,7 @@ export function ExplorerPage({
 
   const workspaceQuery = useQuery({
     queryKey: ["workspace", activeSlug],
-    queryFn: async () => {
-      const [workspace, detail] = await Promise.all([
-        api.workspace(activeSlug),
-        api.projectDetail(activeSlug),
-      ]);
-      return { workspace, detail };
-    },
+    queryFn: () => fetchWorkspace(activeSlug),
     enabled: Boolean(activeSlug),
   });
 
@@ -104,10 +116,24 @@ export function ExplorerPage({
   const hiddenLineCount = Math.max(0, lines.length - visibleLines.length);
 
   const handleSelectFile = (path: string) => {
-    setManualSelectedPath(path);
-    setHighlightedLine(null);
-    setShowAllLines(false);
-    setImageLoadFailed(false);
+    if (!activeSlug) return;
+    startTransition(async () => {
+      await queryClient.prefetchQuery({
+        queryKey: ["project-file", activeSlug, path],
+        queryFn: () => api.projectFile(activeSlug, path),
+      });
+      setManualSelectedPath(path);
+      setHighlightedLine(null);
+      setShowAllLines(false);
+      setImageLoadFailed(false);
+    });
+  };
+
+  const prefetchRevision = (revisionId: string) => {
+    void queryClient.prefetchQuery({
+      queryKey: ["revision", revisionId],
+      queryFn: () => api.revisionDetail(revisionId),
+    });
   };
 
   const handleCopyContent = async () => {
@@ -152,25 +178,52 @@ export function ExplorerPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Select
-            id="explorer-project"
-            aria-label="选择项目"
-            value={activeSlug}
-            onChange={(e) => {
-              const nextSlug = e.target.value;
-              setSelectedProjectSlug(nextSlug);
-              onProjectChange?.(nextSlug);
-              setManualSelectedPath(null);
-              setHighlightedLine(null);
+          <Combobox
+            items={projectOptions}
+            value={activeProjectOption}
+            onValueChange={(next) => {
+              if (!next) return;
+              const nextSlug = next.value;
+              void queryClient
+                .prefetchQuery({
+                  queryKey: ["workspace", nextSlug],
+                  queryFn: () => fetchWorkspace(nextSlug),
+                })
+                .finally(() => {
+                  setSelectedProjectSlug(nextSlug);
+                  onProjectChange?.(nextSlug);
+                  setManualSelectedPath(null);
+                  setHighlightedLine(null);
+                  setShowAllLines(false);
+                });
             }}
-            className="h-7 min-w-[160px] font-mono"
+            itemToStringLabel={(item) => item.label}
+            itemToStringValue={(item) => item.value}
+            isItemEqualToValue={(item, current) => item.value === current.value}
           >
-            {projects.map((p) => (
-              <option key={p.id} value={p.slug}>
-                {p.slug}
-              </option>
-            ))}
-          </Select>
+            <ComboboxTrigger
+              id="explorer-project"
+              aria-label="选择项目"
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 min-w-[160px] justify-between font-mono"
+                />
+              }
+            >
+              <ComboboxValue />
+            </ComboboxTrigger>
+            <ComboboxContent>
+              <ComboboxList>
+                {(item) => (
+                  <ComboboxItem key={item.value} value={item}>
+                    {item.label}
+                  </ComboboxItem>
+                )}
+              </ComboboxList>
+            </ComboboxContent>
+          </Combobox>
 
           {activeRevision ? (
             <Link
@@ -178,8 +231,12 @@ export function ExplorerPage({
               params={{ revisionId: activeRevision.id }}
               className="inline-flex items-center gap-1.5 rounded-sm border border-zinc-300 bg-white px-2.5 py-1 text-xs font-mono text-ink hover:bg-subtle no-underline"
               title="查看当前生效版本详情"
+              onPointerEnter={() => prefetchRevision(activeRevision.id)}
+              onFocus={() => prefetchRevision(activeRevision.id)}
             >
-              <span>当前版本 {shortUuid(activeRevision.id)}</span>
+              <span style={{ viewTransitionName: "revision-identity" }}>
+                当前版本 {shortUuid(activeRevision.id)}
+              </span>
               <span className="text-ink-muted">·</span>
               <span className="mono-num">
                 {formatTokens(workspaceQuery.data?.workspace.tokens)} /{" "}
@@ -286,28 +343,29 @@ export function ExplorerPage({
                 aria-label="文件内容"
                 className="lg:col-span-8 xl:col-span-9 flex flex-col min-w-0"
               >
-                {!selectedPath ? (
-                  <div className="p-6">
-                    <EmptyPanel title="请选择左侧文件查看内容" />
-                  </div>
-                ) : fileQuery.isLoading ? (
-                  <LoadingPanel label={`正在打开 ${selectedPath}…`} className="border-0" />
-                ) : fileQuery.error ? (
-                  <div className="p-4">
-                    <ErrorPanel
-                      title={`无法打开 ${selectedPath}`}
-                      error={fileQuery.error}
-                      onRetry={() => void fileQuery.refetch()}
-                    />
-                  </div>
-                ) : fileData ? (
-                  <>
+                <FadeTransition key={selectedPath ?? "empty"}>
+                  {!selectedPath ? (
+                    <div className="p-6">
+                      <EmptyPanel title="请选择左侧文件查看内容" />
+                    </div>
+                  ) : fileQuery.isLoading ? (
+                    <LoadingPanel label={`正在打开 ${selectedPath}…`} className="border-0" />
+                  ) : fileQuery.error ? (
+                    <div className="p-4">
+                      <ErrorPanel
+                        title={`无法打开 ${selectedPath}`}
+                        error={fileQuery.error}
+                        onRetry={() => void fileQuery.refetch()}
+                      />
+                    </div>
+                  ) : fileData ? (
+                    <>
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline px-4 py-2.5 bg-subtle/40">
                       <div className="flex flex-wrap items-center gap-2 min-w-0">
                         <code className="font-mono text-xs font-semibold text-ink break-all">
                           {fileData.path}
                         </code>
-                        <Badge variant="muted">{fileData.media_type}</Badge>
+                        <Badge variant="secondary">{fileData.media_type}</Badge>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2.5">
@@ -475,6 +533,7 @@ export function ExplorerPage({
                     )}
                   </>
                 ) : null}
+                </FadeTransition>
               </section>
             </div>
           ) : null}

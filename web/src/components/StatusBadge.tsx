@@ -21,7 +21,7 @@ export function StatusBadge({ status, stale = false, conflictCount }: StatusBadg
   switch (status) {
     case "active":
       badge = (
-        <Badge variant="solid">
+        <Badge variant="default">
           <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
           <span>生效中</span>
         </Badge>
@@ -37,7 +37,10 @@ export function StatusBadge({ status, stale = false, conflictCount }: StatusBadg
       break;
     case "approved":
       badge = (
-        <Badge variant="added">
+        <Badge
+          variant="outline"
+          className="border-emerald-300 bg-emerald-50 text-emerald-800"
+        >
           <Check className="h-3 w-3" aria-hidden="true" />
           <span>已批准</span>
         </Badge>
@@ -45,7 +48,7 @@ export function StatusBadge({ status, stale = false, conflictCount }: StatusBadg
       break;
     case "conflict":
       badge = (
-        <Badge variant="warning">
+        <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-900">
           <AlertTriangle className="h-3 w-3" aria-hidden="true" />
           <span>
             存在冲突
@@ -56,7 +59,7 @@ export function StatusBadge({ status, stale = false, conflictCount }: StatusBadg
       break;
     case "rejected":
       badge = (
-        <Badge variant="removed" className="line-through">
+        <Badge variant="destructive" className="line-through">
           <XCircle className="h-3 w-3" aria-hidden="true" />
           <span>已拒绝</span>
         </Badge>
@@ -64,7 +67,7 @@ export function StatusBadge({ status, stale = false, conflictCount }: StatusBadg
       break;
     case "superseded":
       badge = (
-        <Badge variant="dashed">
+        <Badge variant="outline" className="border-dashed text-muted-foreground">
           <Archive className="h-3 w-3" aria-hidden="true" />
           <span>已替代</span>
         </Badge>
@@ -76,7 +79,11 @@ export function StatusBadge({ status, stale = false, conflictCount }: StatusBadg
     <span className="inline-flex items-center gap-1.5">
       {badge}
       {stale && status !== "active" && status !== "superseded" && status !== "rejected" ? (
-        <Badge variant="warning" title="该修订基于更早的 Active Revision 合并，当前基线已变化">
+        <Badge
+          variant="outline"
+          className="border-amber-300 bg-amber-50 text-amber-900"
+          title="该修订基于更早的 Active Revision 合并，当前基线已变化"
+        >
           <GitCommitHorizontal className="h-3 w-3" aria-hidden="true" />
           <span>基线已变更</span>
         </Badge>

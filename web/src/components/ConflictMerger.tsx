@@ -5,7 +5,7 @@ import { CopyableHash } from "@/components/CopyableHash";
 import { ErrorPanel, ForbiddenPanel, LoadingPanel } from "@/components/StateViews";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { api, ApiError } from "@/lib/api";
 import {
   combineWholeDocuments,
@@ -304,12 +304,18 @@ export function ConflictMerger({
                   <div className="flex items-center gap-2">
                     <code className="font-mono text-xs font-semibold text-ink">{activePath}</code>
                     {resolvedStatusMap[activePath] ? (
-                      <Badge variant="added">
+                      <Badge
+                        variant="outline"
+                        className="border-emerald-300 bg-emerald-50 text-emerald-800"
+                      >
                         <Check className="h-3 w-3" aria-hidden="true" />
                         <span>已处理</span>
                       </Badge>
                     ) : (
-                      <Badge variant="warning">
+                      <Badge
+                        variant="outline"
+                        className="border-amber-300 bg-amber-50 text-amber-900"
+                      >
                         <AlertTriangle className="h-3 w-3" aria-hidden="true" />
                         <span>待处理</span>
                       </Badge>

@@ -1,19 +1,23 @@
-import { useState, type FormEvent } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Check,
   Copy,
+  Folder,
   KeyRound,
+  Plug,
   Plus,
   RefreshCw,
   ShieldOff,
   UserPlus,
+  Users,
 } from "lucide-react";
 import { ClientSetupHelper } from "@/components/ClientSetupHelper";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CopyableHash } from "@/components/CopyableHash";
+import { FadeTransition } from "@/components/FadeTransition";
 import { EmptyPanel, ErrorPanel, ForbiddenPanel, LoadingPanel } from "@/components/StateViews";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,7 +29,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input, Select, Textarea } from "@/components/ui/input";
+import { Combobox, ComboboxContent, ComboboxItem, ComboboxList, ComboboxTrigger, ComboboxValue } from "@/components/ui/combobox";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -52,6 +58,12 @@ function roleLabel(role: UserRole): string {
   }
 }
 
+const USER_ROLE_OPTIONS: ReadonlyArray<{ value: UserRole; label: string }> = [
+  { value: "member", label: "普通成员（只读）" },
+  { value: "admin", label: "管理员（审批与密钥管理）" },
+  { value: "superadmin", label: "超级管理员（全部权限）" },
+];
+
 export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
   const {
     projects,
@@ -62,6 +74,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
     refreshSession,
   } = useAuth();
   const queryClient = useQueryClient();
+  const [, startTransition] = useTransition();
 
   const [tab, setTab] = useState<PlatformTab>(initialTab ?? "projects");
   const [keyProjectSlug, setKeyProjectSlug] = useState(
@@ -114,6 +127,39 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
     queryFn: () => api.listUsers(),
     enabled: canPlatform && (tab === "users" || issueKeyOpen),
   });
+
+  const keyProjectOptions = projects.map((p) => ({ value: p.slug, label: p.slug }));
+  const selectedKeyProject =
+    keyProjectOptions.find((p) => p.value === effectiveKeySlug) ?? null;
+
+  const keyUserOptions = [
+    { value: "", label: "当前登录用户" },
+    ...(usersQuery.data?.users ?? []).map((u) => ({
+      value: u.id,
+      label: `${u.username} (${roleLabel(u.role)})`,
+    })),
+  ];
+  const selectedKeyUser = keyUserOptions.find((u) => u.value === keyUserId) ?? null;
+
+  const selectedRole = USER_ROLE_OPTIONS.find((r) => r.value === newRole) ?? null;
+
+  const changeTab = (nextTab: PlatformTab) => {
+    startTransition(async () => {
+      if (nextTab === "keys" && canApprove && effectiveKeySlug) {
+        await queryClient.prefetchQuery({
+          queryKey: ["project-keys", effectiveKeySlug],
+          queryFn: () => api.listProjectKeys(effectiveKeySlug),
+        });
+      }
+      if (nextTab === "users" && canPlatform) {
+        await queryClient.prefetchQuery({
+          queryKey: ["users"],
+          queryFn: () => api.listUsers(),
+        });
+      }
+      setTab(nextTab);
+    });
+  };
 
   const handleCreateProject = async (event: FormEvent) => {
     event.preventDefault();
@@ -268,15 +314,28 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
         <h1 className="text-base font-semibold tracking-tight text-ink">平台管理</h1>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as PlatformTab)}>
+      <Tabs value={tab} onValueChange={(v) => changeTab(v as PlatformTab)}>
         <TabsList>
-          <TabsTrigger value="projects">项目 ({projects.length})</TabsTrigger>
-          <TabsTrigger value="keys">API Key</TabsTrigger>
-          <TabsTrigger value="users">用户</TabsTrigger>
-          <TabsTrigger value="setup">客户端接入</TabsTrigger>
+          <TabsTrigger value="projects">
+            <Folder aria-hidden="true" />
+            项目 ({projects.length})
+          </TabsTrigger>
+          <TabsTrigger value="keys">
+            <KeyRound aria-hidden="true" />
+            API Key
+          </TabsTrigger>
+          <TabsTrigger value="users">
+            <Users aria-hidden="true" />
+            用户
+          </TabsTrigger>
+          <TabsTrigger value="setup">
+            <Plug aria-hidden="true" />
+            客户端接入
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="projects" className="space-y-3">
+          <FadeTransition>
           {canApprove ? (
             <div className="flex justify-end">
               <Button size="sm" onClick={() => setCreateProjectOpen(true)}>
@@ -323,7 +382,9 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                             </Link>
                           </div>
                         ) : (
-                          <Badge variant="dashed">未激活</Badge>
+                          <Badge variant="outline" className="border-dashed text-muted-foreground">
+                            未激活
+                          </Badge>
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-right mono-num text-ink">
@@ -358,9 +419,11 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
               </table>
             </div>
           )}
+          </FadeTransition>
         </TabsContent>
 
         <TabsContent value="keys" className="space-y-4">
+          <FadeTransition>
           {!canApprove ? (
             <ForbiddenPanel
               title="需要管理员权限"
@@ -370,19 +433,39 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
             <>
               <div className="flex flex-wrap items-center justify-between gap-3 border border-hairline bg-surface px-4 py-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Select
-                    id="keys-project-select"
-                    aria-label="选择项目"
-                    value={effectiveKeySlug}
-                    onChange={(e) => setKeyProjectSlug(e.target.value)}
-                    className="h-7 min-w-[160px] font-mono"
+                  <Combobox
+                    items={keyProjectOptions}
+                    value={selectedKeyProject}
+                    onValueChange={(next) => {
+                      if (next) setKeyProjectSlug(next.value);
+                    }}
+                    itemToStringLabel={(item) => item.label}
+                    itemToStringValue={(item) => item.value}
+                    isItemEqualToValue={(item, current) => item.value === current.value}
                   >
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.slug}>
-                        {p.slug}
-                      </option>
-                    ))}
-                  </Select>
+                    <ComboboxTrigger
+                      id="keys-project-select"
+                      aria-label="选择项目"
+                      render={
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 min-w-[160px] justify-between font-mono"
+                        />
+                      }
+                    >
+                      <ComboboxValue />
+                    </ComboboxTrigger>
+                    <ComboboxContent>
+                      <ComboboxList>
+                        {(item) => (
+                          <ComboboxItem key={item.value} value={item}>
+                            {item.label}
+                          </ComboboxItem>
+                        )}
+                      </ComboboxList>
+                    </ComboboxContent>
+                  </Combobox>
                   <Button
                     variant="outline"
                     size="xs"
@@ -453,7 +536,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                                 {k.scopes.map((s) => (
                                   <Badge
                                     key={s}
-                                    variant={s.startsWith("admin:") ? "outline" : "muted"}
+                                    variant={s.startsWith("admin:") ? "outline" : "secondary"}
                                   >
                                     {s}
                                   </Badge>
@@ -462,11 +545,21 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                             </td>
                             <td className="px-3 py-2.5">
                               {isRevoked ? (
-                                <Badge variant="removed">已吊销</Badge>
+                                <Badge variant="destructive">已吊销</Badge>
                               ) : isExpired ? (
-                                <Badge variant="dashed">已过期</Badge>
+                                <Badge
+                                  variant="outline"
+                                  className="border-dashed text-muted-foreground"
+                                >
+                                  已过期
+                                </Badge>
                               ) : (
-                                <Badge variant="added">有效</Badge>
+                                <Badge
+                                  variant="outline"
+                                  className="border-emerald-300 bg-emerald-50 text-emerald-800"
+                                >
+                                  有效
+                                </Badge>
                               )}
                             </td>
                             <td
@@ -478,7 +571,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                             <td className="px-3 py-2.5 text-right">
                               {!isRevoked ? (
                                 <Button
-                                  variant="destructiveOutline"
+                                  variant="destructive"
                                   size="xs"
                                   onClick={() => setRevokeTarget(k)}
                                 >
@@ -500,9 +593,11 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
               )}
             </>
           )}
+          </FadeTransition>
         </TabsContent>
 
         <TabsContent value="users" className="space-y-4">
+          <FadeTransition>
           {!canPlatform ? (
             <ForbiddenPanel
               title="需要超级管理员权限"
@@ -556,10 +651,10 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                             <Badge
                               variant={
                                 u.role === "superadmin"
-                                  ? "solid"
+                                  ? "default"
                                   : u.role === "admin"
                                     ? "outline"
-                                    : "muted"
+                                    : "secondary"
                               }
                             >
                               {roleLabel(u.role)}
@@ -582,10 +677,13 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
               )}
             </>
           )}
+          </FadeTransition>
         </TabsContent>
 
         <TabsContent value="setup">
-          <ClientSetupHelper projects={projects} defaultProjectSlug={selectedProjectSlug} />
+          <FadeTransition>
+            <ClientSetupHelper projects={projects} defaultProjectSlug={selectedProjectSlug} />
+          </FadeTransition>
         </TabsContent>
       </Tabs>
 
@@ -659,6 +757,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
 
             <DialogFooter>
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setCreateProjectOpen(false)}
@@ -745,25 +844,39 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                   <label htmlFor="issue-key-user" className="block text-xs font-medium text-ink">
                     归属用户（可选）
                   </label>
-                  <Select
-                    id="issue-key-user"
-                    value={keyUserId}
-                    onChange={(e) => setKeyUserId(e.target.value)}
-                    className="w-full font-mono"
+                  <Combobox
+                    items={keyUserOptions}
+                    value={selectedKeyUser}
+                    onValueChange={(next) => setKeyUserId(next?.value ?? "")}
+                    itemToStringLabel={(item) => item.label}
+                    itemToStringValue={(item) => item.value}
+                    isItemEqualToValue={(item, current) => item.value === current.value}
                   >
-                    <option value="">当前登录用户</option>
-                    {(usersQuery.data?.users ?? []).map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.username} ({roleLabel(u.role)})
-                      </option>
-                    ))}
-                  </Select>
+                    <ComboboxTrigger
+                      id="issue-key-user"
+                      render={
+                        <Button variant="outline" size="sm" className="w-full justify-between font-mono" />
+                      }
+                    >
+                      <ComboboxValue />
+                    </ComboboxTrigger>
+                    <ComboboxContent>
+                      <ComboboxList>
+                        {(item) => (
+                          <ComboboxItem key={item.value} value={item}>
+                            {item.label}
+                          </ComboboxItem>
+                        )}
+                      </ComboboxList>
+                    </ComboboxContent>
+                  </Combobox>
                 </div>
               </>
             ) : null}
 
             <DialogFooter>
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setIssueKeyOpen(false)}
@@ -925,20 +1038,37 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
               <label htmlFor="new-user-role" className="block text-xs font-medium text-ink">
                 角色
               </label>
-              <Select
-                id="new-user-role"
-                value={newRole}
-                onChange={(e) => setNewRole(e.target.value as UserRole)}
-                className="w-full"
+              <Combobox
+                items={[...USER_ROLE_OPTIONS]}
+                value={selectedRole}
+                onValueChange={(next) => {
+                  if (next) setNewRole(next.value);
+                }}
+                itemToStringLabel={(item) => item.label}
+                itemToStringValue={(item) => item.value}
+                isItemEqualToValue={(item, current) => item.value === current.value}
               >
-                <option value="member">普通成员（只读）</option>
-                <option value="admin">管理员（审批与密钥管理）</option>
-                <option value="superadmin">超级管理员（全部权限）</option>
-              </Select>
+                <ComboboxTrigger
+                  id="new-user-role"
+                  render={<Button variant="outline" size="sm" className="w-full justify-between" />}
+                >
+                  <ComboboxValue />
+                </ComboboxTrigger>
+                <ComboboxContent>
+                  <ComboboxList>
+                    {(item) => (
+                      <ComboboxItem key={item.value} value={item}>
+                        {item.label}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
             </div>
 
             <DialogFooter>
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setCreateUserOpen(false)}

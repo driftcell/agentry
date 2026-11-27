@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -17,12 +17,21 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ConflictMerger } from "@/components/ConflictMerger";
 import { CopyableHash } from "@/components/CopyableHash";
 import { DiffViewer, type DiffViewMode } from "@/components/DiffViewer";
+import { FadeTransition } from "@/components/FadeTransition";
 import { EmptyPanel, ErrorPanel, ForbiddenPanel, LoadingPanel } from "@/components/StateViews";
 import { StatusBadge } from "@/components/StatusBadge";
 import { SingleTokenDelta, TokenDelta } from "@/components/TokenDelta";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  ComboboxValue,
+} from "@/components/ui/combobox";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -63,22 +72,33 @@ function comparePairSides(pair: ComparePair): {
   }
 }
 
+const COMPARE_PAIR_OPTIONS: ReadonlyArray<{ value: ComparePair; label: string }> = [
+  { value: "active_incoming", label: "当前生效 → 本次变更" },
+  { value: "base_incoming", label: "原始基线 → 本次变更" },
+  { value: "base_active", label: "原始基线 → 当前生效" },
+];
+
 function ChangeTypeBadge({ type }: { type: RevisionFileView["change_type"] }) {
   switch (type) {
     case "added":
-      return <Badge variant="added">新增</Badge>;
+      return (
+        <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-800">
+          新增
+        </Badge>
+      );
     case "modified":
       return <Badge variant="outline">修改</Badge>;
     case "deleted":
-      return <Badge variant="removed">删除</Badge>;
+      return <Badge variant="destructive">删除</Badge>;
     case "unchanged":
-      return <Badge variant="muted">未变</Badge>;
+      return <Badge variant="secondary">未变</Badge>;
   }
 }
 
 export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
   const { canApprove } = useAuth();
   const queryClient = useQueryClient();
+  const [, startTransition] = useTransition();
 
   const [diffMode, setDiffMode] = useState<DiffViewMode>("split");
   const [comparePair, setComparePair] = useState<ComparePair>("active_incoming");
@@ -130,8 +150,8 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
   );
 
   const pair = comparePairSides(comparePair);
-  const canFetchSide = (side: FileSideName) => {
-    if (!revision || !project || !selectedPath) return false;
+  const canFetchSide = (side: FileSideName, path: string | null = selectedPath) => {
+    if (!revision || !project || !path) return false;
     if (side === "base") return Boolean(revision.base_revision_id);
     if (side === "active") return Boolean(project.active_revision_id);
     return true;
@@ -154,6 +174,49 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
 
   const leftQuery = sideQueries[0];
   const rightQuery = sideQueries[1];
+
+  const prefetchFilePair = async (path: string, nextComparePair: ComparePair) => {
+    const nextPair = comparePairSides(nextComparePair);
+    const requests: Promise<unknown>[] = [];
+
+    if (canFetchSide(nextPair.left, path)) {
+      requests.push(
+        queryClient.prefetchQuery({
+          queryKey: ["revision-file", revisionId, path, nextPair.left],
+          queryFn: () => api.revisionFile(revisionId, path, nextPair.left),
+        }),
+      );
+    }
+
+    if (canFetchSide(nextPair.right, path)) {
+      requests.push(
+        queryClient.prefetchQuery({
+          queryKey: ["revision-file", revisionId, path, nextPair.right],
+          queryFn: () => api.revisionFile(revisionId, path, nextPair.right),
+        }),
+      );
+    }
+
+    await Promise.all(requests);
+  };
+
+  const selectFile = (path: string) => {
+    startTransition(async () => {
+      await prefetchFilePair(path, comparePair);
+      setManualSelectedPath(path);
+    });
+  };
+
+  const changeComparePair = (next: ComparePair) => {
+    if (!selectedPath) {
+      setComparePair(next);
+      return;
+    }
+    startTransition(async () => {
+      await prefetchFilePair(selectedPath, next);
+      setComparePair(next);
+    });
+  };
 
   const invalidateAll = async () => {
     await Promise.all([
@@ -225,7 +288,9 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
             <span>审批队列</span>
           </Link>
           <span className="font-mono text-xs font-semibold text-ink">{project.slug}</span>
-          <CopyableHash value={revision.id} />
+          <span style={{ viewTransitionName: "revision-identity" }}>
+            <CopyableHash value={revision.id} />
+          </span>
           <StatusBadge
             status={revision.status}
             stale={detail.stale}
@@ -373,7 +438,7 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
                   </>
                 ) : null}
                 <Button
-                  variant="destructiveOutline"
+                  variant="destructive"
                   size="sm"
                   disabled={pendingAction !== null}
                   onClick={() => setConfirmKind("reject")}
@@ -409,17 +474,33 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
 
           {activeTab === "diff" ? (
             <div className="flex flex-wrap items-center gap-2">
-              <Select
-                id="diff-compare-pair"
-                aria-label="对比版本"
-                value={comparePair}
-                onChange={(e) => setComparePair(e.target.value as ComparePair)}
-                className="h-7 text-xs"
+              <Combobox
+                items={[...COMPARE_PAIR_OPTIONS]}
+                value={COMPARE_PAIR_OPTIONS.find((p) => p.value === comparePair) ?? null}
+                onValueChange={(next) => {
+                  if (next) changeComparePair(next.value);
+                }}
+                itemToStringLabel={(item) => item.label}
+                itemToStringValue={(item) => item.value}
+                isItemEqualToValue={(item, current) => item.value === current.value}
               >
-                <option value="active_incoming">当前生效 → 本次变更</option>
-                <option value="base_incoming">原始基线 → 本次变更</option>
-                <option value="base_active">原始基线 → 当前生效</option>
-              </Select>
+                <ComboboxTrigger
+                  id="diff-compare-pair"
+                  aria-label="对比版本"
+                  render={<Button variant="outline" size="sm" className="h-7 justify-between" />}
+                >
+                  <ComboboxValue />
+                </ComboboxTrigger>
+                <ComboboxContent>
+                  <ComboboxList>
+                    {(item) => (
+                      <ComboboxItem key={item.value} value={item}>
+                        {item.label}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
 
               <div className="inline-flex border border-hairline bg-surface rounded-sm p-0.5">
                 <Button
@@ -487,7 +568,7 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
                     <li key={file.path}>
                       <button
                         type="button"
-                        onClick={() => setManualSelectedPath(file.path)}
+                        onClick={() => selectFile(file.path)}
                         aria-current={isSelected ? "true" : undefined}
                         className={cn(
                           "w-full text-left px-3 py-2 text-xs font-mono cursor-pointer transition-colors space-y-1",
@@ -506,7 +587,14 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5">
                             <ChangeTypeBadge type={file.change_type} />
-                            {hasConflict ? <Badge variant="warning">冲突</Badge> : null}
+                            {hasConflict ? (
+                              <Badge
+                                variant="outline"
+                                className="border-amber-300 bg-amber-50 text-amber-900"
+                              >
+                                冲突
+                              </Badge>
+                            ) : null}
                           </div>
                           <span
                             className={cn(
@@ -525,33 +613,35 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
             </aside>
 
             <section aria-label="文件差异详情" className="lg:col-span-8 xl:col-span-9 min-w-0">
-              {!selectedPath ? (
-                <div className="p-6">
-                  <EmptyPanel title="暂无文件" />
-                </div>
-              ) : leftQuery?.isLoading || rightQuery?.isLoading ? (
-                <LoadingPanel label={`正在加载 ${selectedPath}…`} className="border-0" />
-              ) : leftQuery?.error || rightQuery?.error ? (
-                <div className="p-4">
-                  <ErrorPanel
-                    title={`无法加载 ${selectedPath}`}
-                    error={leftQuery?.error ?? rightQuery?.error}
-                    onRetry={() => {
-                      void leftQuery?.refetch();
-                      void rightQuery?.refetch();
-                    }}
+              <FadeTransition key={`${selectedPath ?? "none"}-${comparePair}`}>
+                {!selectedPath ? (
+                  <div className="p-6">
+                    <EmptyPanel title="暂无文件" />
+                  </div>
+                ) : leftQuery?.isLoading || rightQuery?.isLoading ? (
+                  <LoadingPanel label={`正在加载 ${selectedPath}…`} className="border-0" />
+                ) : leftQuery?.error || rightQuery?.error ? (
+                  <div className="p-4">
+                    <ErrorPanel
+                      title={`无法加载 ${selectedPath}`}
+                      error={leftQuery?.error ?? rightQuery?.error}
+                      onRetry={() => {
+                        void leftQuery?.refetch();
+                        void rightQuery?.refetch();
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <DiffViewer
+                    path={selectedPath}
+                    mode={diffMode}
+                    leftLabel={pair.leftLabel}
+                    rightLabel={pair.rightLabel}
+                    leftSide={canFetchSide(pair.left) ? (leftQuery?.data ?? null) : null}
+                    rightSide={canFetchSide(pair.right) ? (rightQuery?.data ?? null) : null}
                   />
-                </div>
-              ) : (
-                <DiffViewer
-                  path={selectedPath}
-                  mode={diffMode}
-                  leftLabel={pair.leftLabel}
-                  rightLabel={pair.rightLabel}
-                  leftSide={canFetchSide(pair.left) ? (leftQuery?.data ?? null) : null}
-                  rightSide={canFetchSide(pair.right) ? (rightQuery?.data ?? null) : null}
-                />
-              )}
+                )}
+              </FadeTransition>
             </section>
           </div>
         </TabsContent>

@@ -69,7 +69,7 @@ function DirectoryItem({
           <Button
             variant="ghost"
             size="xs"
-            className="group w-full justify-between px-1.5 font-mono text-xs text-ink hover:bg-subtle"
+            className="group h-7 w-full justify-between px-1.5 font-mono text-xs text-ink transition-none hover:bg-subtle aria-expanded:bg-transparent aria-expanded:text-ink"
             style={{ paddingLeft: `${depth * 12 + 6}px` }}
           />
         }
@@ -140,7 +140,7 @@ function FileItem({
       aria-current={selected ? "true" : undefined}
       title={file.description ? `${node.path} — ${file.description}` : node.path}
       className={cn(
-        "w-full justify-between gap-2 px-1.5 font-mono text-xs h-auto py-1",
+        "h-7 w-full justify-between gap-2 px-1.5 py-0 font-mono text-xs transition-none",
         selected ? "bg-zinc-950 text-zinc-50 hover:bg-zinc-900" : "text-ink",
       )}
       style={{ paddingLeft: `${depth * 12 + 22}px` }}
@@ -150,9 +150,9 @@ function FileItem({
         <span className="truncate">{node.name}</span>
         {classification.badgeLabel ? (
           <Badge
-            variant={selected ? "outline" : "muted"}
+            variant={selected ? "outline" : "secondary"}
             className={cn(
-              "px-1 py-0 text-[9px]",
+              "h-4 px-1 py-0 text-[9px] leading-none transition-none",
               selected ? "border-zinc-500 bg-zinc-800 text-zinc-100" : "",
             )}
           >

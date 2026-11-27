@@ -3,7 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Activity, FolderTree, GitPullRequest, LogOut, Settings2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  ComboboxValue,
+} from "@/components/ui/combobox";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import type { UserRole } from "@/lib/types";
@@ -32,6 +39,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   });
 
   const pendingCount = dashboardQuery.data?.metrics.pending_reviews ?? 0;
+
+  const projectOptions = projects.map((p) => ({ value: p.slug, label: p.slug }));
+  const selectedProjectOption =
+    projectOptions.find((p) => p.value === selectedProjectSlug) ?? null;
 
   const navItems = [
     {
@@ -70,7 +81,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         跳转到正文
       </a>
 
-      <header className="sticky top-0 z-30 border-b border-hairline bg-surface">
+      <header
+        className="sticky top-0 z-30 border-b border-hairline bg-surface"
+        style={{ viewTransitionName: "site-header" }}
+      >
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 sm:px-6 min-h-12 py-2 sm:py-0 sm:h-12">
           <div className="flex items-center gap-6">
             <Link to="/" className="flex items-baseline gap-2 no-underline">
@@ -112,25 +126,45 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-2.5">
             {projects.length > 0 ? (
-              <Select
-                id="global-project-select"
-                aria-label="切换当前项目"
-                value={selectedProjectSlug}
-                onChange={(e) => setSelectedProjectSlug(e.target.value)}
-                className="h-7 min-w-[140px] font-mono text-xs"
+              <Combobox
+                items={projectOptions}
+                value={selectedProjectOption}
+                onValueChange={(next) => {
+                  if (next) setSelectedProjectSlug(next.value);
+                }}
+                itemToStringLabel={(item) => item.label}
+                itemToStringValue={(item) => item.value}
+                isItemEqualToValue={(item, current) => item.value === current.value}
               >
-                {projects.map((p) => (
-                  <option key={p.id} value={p.slug}>
-                    {p.slug}
-                  </option>
-                ))}
-              </Select>
+                <ComboboxTrigger
+                  id="global-project-select"
+                  aria-label="切换当前项目"
+                  render={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 min-w-[140px] justify-between font-mono"
+                    />
+                  }
+                >
+                  <ComboboxValue />
+                </ComboboxTrigger>
+                <ComboboxContent>
+                  <ComboboxList>
+                    {(item) => (
+                      <ComboboxItem key={item.value} value={item}>
+                        {item.label}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
             ) : null}
 
             {user ? (
               <div className="flex items-center gap-2 border-l border-hairline pl-2.5">
                 <span className="font-mono text-xs text-ink">{user.username}</span>
-                <Badge variant="muted" className="text-[10px]">
+                <Badge variant="secondary" className="text-[10px]">
                   {roleLabel(user.role)}
                 </Badge>
                 <Button

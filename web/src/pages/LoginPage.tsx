@@ -40,7 +40,7 @@ export function LoginPage({ onSuccess }: { onSuccess?: () => void }) {
       <div className="w-full max-w-[360px]">
         <div className="border-b border-ink pb-3 mb-5 flex items-baseline justify-between">
           <h1 className="font-mono text-base font-bold tracking-tight">AGENTRY</h1>
-          <span className="text-xs text-ink-muted">MCP 注册中心</span>
+          <span className="text-xs text-ink-muted">青塔代理知识库</span>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 border border-hairline bg-surface p-5">

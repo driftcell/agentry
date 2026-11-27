@@ -1,12 +1,20 @@
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, RefreshCw } from "lucide-react";
+import { FadeTransition } from "@/components/FadeTransition";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyPanel, ErrorPanel, LoadingPanel } from "@/components/StateViews";
 import { TokenDelta } from "@/components/TokenDelta";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  ComboboxValue,
+} from "@/components/ui/combobox";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -21,6 +29,8 @@ import { cn } from "@/lib/utils";
 
 export function DashboardPage() {
   const { projects } = useAuth();
+  const queryClient = useQueryClient();
+  const [, startTransition] = useTransition();
   const [scopeSlug, setScopeSlug] = useState<string>("");
 
   const query = useQuery({
@@ -29,10 +39,25 @@ export function DashboardPage() {
   });
 
   const data = query.data;
+  const scopeOptions = [
+    { value: "", label: `全部项目 (${projects.length})` },
+    ...projects.map((p) => ({ value: p.slug, label: p.slug })),
+  ];
+  const selectedScope = scopeOptions.find((o) => o.value === scopeSlug) ?? null;
   const budgetPct =
     data && data.metrics.token_budget > 0
       ? Math.min(100, Math.round((data.metrics.tokens_used / data.metrics.token_budget) * 100))
       : 0;
+
+  const changeScope = (nextSlug: string) => {
+    startTransition(async () => {
+      await queryClient.prefetchQuery({
+        queryKey: ["dashboard", nextSlug || "__all__"],
+        queryFn: () => api.dashboard(nextSlug || undefined),
+      });
+      setScopeSlug(nextSlug);
+    });
+  };
 
   return (
     <div className="space-y-5">
@@ -40,20 +65,37 @@ export function DashboardPage() {
         <h1 className="text-base font-semibold tracking-tight text-ink">概览</h1>
 
         <div className="flex items-center gap-2">
-          <Select
-            id="dashboard-scope"
-            aria-label="统计范围"
-            value={scopeSlug}
-            onChange={(e) => setScopeSlug(e.target.value)}
-            className="h-7 min-w-[160px] font-mono"
+          <Combobox
+            items={scopeOptions}
+            value={selectedScope}
+            onValueChange={(next) => changeScope(next?.value ?? "")}
+            itemToStringLabel={(item) => item.label}
+            itemToStringValue={(item) => item.value}
+            isItemEqualToValue={(item, current) => item.value === current.value}
           >
-            <option value="">全部项目 ({projects.length})</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.slug}>
-                {p.slug}
-              </option>
-            ))}
-          </Select>
+            <ComboboxTrigger
+              id="dashboard-scope"
+              aria-label="统计范围"
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 min-w-[160px] justify-between font-mono"
+                />
+              }
+            >
+              <ComboboxValue />
+            </ComboboxTrigger>
+            <ComboboxContent>
+              <ComboboxList>
+                {(item) => (
+                  <ComboboxItem key={item.value} value={item}>
+                    {item.label}
+                  </ComboboxItem>
+                )}
+              </ComboboxList>
+            </ComboboxContent>
+          </Combobox>
           <Button
             variant="outline"
             size="sm"
@@ -70,16 +112,17 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {query.isLoading ? (
-        <LoadingPanel label="加载中…" />
-      ) : query.error ? (
-        <ErrorPanel
-          title="概览数据加载失败"
-          error={query.error}
-          onRetry={() => void query.refetch()}
-        />
-      ) : data ? (
-        <>
+      <FadeTransition key={scopeSlug || "__all__"}>
+        {query.isLoading ? (
+          <LoadingPanel label="加载中…" />
+        ) : query.error ? (
+          <ErrorPanel
+            title="概览数据加载失败"
+            error={query.error}
+            onRetry={() => void query.refetch()}
+          />
+        ) : data ? (
+          <>
           <section
             aria-label="核心指标"
             className="grid grid-cols-2 lg:grid-cols-4 border border-hairline bg-surface divide-y lg:divide-y-0 divide-x divide-hairline"
@@ -355,7 +398,8 @@ export function DashboardPage() {
             </section>
           </div>
         </>
-      ) : null}
+        ) : null}
+      </FadeTransition>
     </div>
   );
 }

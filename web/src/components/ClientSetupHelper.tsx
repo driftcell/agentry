@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { AlertCircle, Check, Copy, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Combobox, ComboboxContent, ComboboxItem, ComboboxList, ComboboxTrigger, ComboboxValue } from "@/components/ui/combobox";
+import { Input } from "@/components/ui/input";
 import { generateClientSetup, hasAdminScope, type EndpointMode } from "@/lib/client-setup";
 import { ALL_SCOPES, type Project, type Scope } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -91,6 +92,12 @@ export function ClientSetupHelper({ projects, defaultProjectSlug }: ClientSetupH
   const [includeHeader, setIncludeHeader] = useState(false);
   const [serverName, setServerName] = useState("");
 
+  const projectOptions =
+    projects.length > 0
+      ? projects.map((p) => ({ value: p.slug, label: p.slug }))
+      : [{ value: "default", label: "default" }];
+  const selectedProject = projectOptions.find((p) => p.value === projectSlug) ?? null;
+
   const adminEnabled = hasAdminScope(scopes);
 
   const toggleScope = (scope: Scope) => {
@@ -128,22 +135,34 @@ export function ClientSetupHelper({ projects, defaultProjectSlug }: ClientSetupH
             <label htmlFor="setup-project" className="block text-xs text-ink-muted">
               项目
             </label>
-            <Select
-              id="setup-project"
-              value={projectSlug}
-              onChange={(e) => setProjectSlug(e.target.value)}
-              className="w-full font-mono"
+            <Combobox
+              items={projectOptions}
+              value={selectedProject}
+              onValueChange={(next) => {
+                if (next) setProjectSlug(next.value);
+              }}
+              itemToStringLabel={(item) => item.label}
+              itemToStringValue={(item) => item.value}
+              isItemEqualToValue={(item, current) => item.value === current.value}
             >
-              {projects.length > 0 ? (
-                projects.map((p) => (
-                  <option key={p.id} value={p.slug}>
-                    {p.slug}
-                  </option>
-                ))
-              ) : (
-                <option value="default">default</option>
-              )}
-            </Select>
+              <ComboboxTrigger
+                id="setup-project"
+                render={
+                  <Button variant="outline" size="sm" className="w-full justify-between font-mono" />
+                }
+              >
+                <ComboboxValue />
+              </ComboboxTrigger>
+              <ComboboxContent>
+                <ComboboxList>
+                  {(item) => (
+                    <ComboboxItem key={item.value} value={item}>
+                      {item.label}
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxContent>
+            </Combobox>
           </div>
 
           <div className="space-y-1.5">

@@ -5,6 +5,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 
 const outDir = path.resolve(import.meta.dirname, "../crates/server/static");
+const apiTarget = process.env.AGENTRY_API_TARGET ?? "http://127.0.0.1:8080";
 
 function cleanStaticExceptGitkeep(): Plugin {
   return {
@@ -54,10 +55,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": "http://127.0.0.1:8080",
-      "/mcp": "http://127.0.0.1:8080",
-      "/admin/mcp": "http://127.0.0.1:8080",
-      "/health": "http://127.0.0.1:8080",
+      "/api": apiTarget,
+      "/mcp": apiTarget,
+      "/admin/mcp": apiTarget,
+      "/health": apiTarget,
     },
   },
 });

@@ -1,10 +1,13 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check,
+  CheckCircle2,
   ChevronRight,
   GitCompare,
+  History,
+  Inbox,
   RefreshCw,
   ShieldAlert,
   XCircle,
@@ -12,13 +15,22 @@ import {
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CopyableHash } from "@/components/CopyableHash";
+import { FadeTransition } from "@/components/FadeTransition";
 import { EmptyPanel, ErrorPanel, ForbiddenPanel, LoadingPanel } from "@/components/StateViews";
 import { StatusBadge } from "@/components/StatusBadge";
 import { SingleTokenDelta, TokenDelta } from "@/components/TokenDelta";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Input, Select } from "@/components/ui/input";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  ComboboxValue,
+} from "@/components/ui/combobox";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -35,6 +47,8 @@ const STATUS_MAP: Record<QueueFilter, RevisionStatus[]> = {
 };
 
 function ExpandableRevisionFiles({ revisionId }: { revisionId: string }) {
+  const queryClient = useQueryClient();
+  const [, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
 
   const detailQuery = useQuery({
@@ -49,7 +63,20 @@ function ExpandableRevisionFiles({ revisionId }: { revisionId: string }) {
   );
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
+    <Collapsible
+      open={open}
+      onOpenChange={(next) => {
+        startTransition(async () => {
+          if (next) {
+            await queryClient.prefetchQuery({
+              queryKey: ["revision", revisionId],
+              queryFn: () => api.revisionDetail(revisionId),
+            });
+          }
+          setOpen(next);
+        });
+      }}
+    >
       <CollapsibleTrigger
         render={
           <Button variant="ghost" size="xs" className="group px-1.5 text-xs text-ink-secondary" />
@@ -63,7 +90,8 @@ function ExpandableRevisionFiles({ revisionId }: { revisionId: string }) {
       </CollapsibleTrigger>
 
       <CollapsibleContent className="mt-2 border border-hairline bg-paper">
-        {detailQuery.isLoading ? (
+        <FadeTransition>
+          {detailQuery.isLoading ? (
           <div className="px-3 py-2 text-xs text-ink-muted">加载中…</div>
         ) : detailQuery.error ? (
           <div className="px-3 py-2 text-xs text-red-700">加载失败</div>
@@ -77,7 +105,7 @@ function ExpandableRevisionFiles({ revisionId }: { revisionId: string }) {
                 className="flex items-center justify-between gap-3 px-3 py-1.5 text-xs font-mono"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <Badge variant="muted" className="text-[10px]">
+                  <Badge variant="secondary" className="text-[10px]">
                     {file.change_type === "added"
                       ? "新增"
                       : file.change_type === "modified"
@@ -95,7 +123,8 @@ function ExpandableRevisionFiles({ revisionId }: { revisionId: string }) {
               </li>
             ))}
           </ul>
-        )}
+          )}
+        </FadeTransition>
       </CollapsibleContent>
     </Collapsible>
   );
@@ -104,9 +133,11 @@ function ExpandableRevisionFiles({ revisionId }: { revisionId: string }) {
 export function ReviewQueuePage() {
   const { projects, canApprove } = useAuth();
   const queryClient = useQueryClient();
+  const [, startTransition] = useTransition();
 
   const [scopeSlug, setScopeSlug] = useState<string>("");
   const [tab, setTab] = useState<QueueFilter>("queue");
+  const [sharedRevisionId, setSharedRevisionId] = useState<string | null>(null);
   const [comments, setComments] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<Record<string, string>>({});
@@ -116,29 +147,55 @@ export function ReviewQueuePage() {
   } | null>(null);
 
   const statuses = STATUS_MAP[tab];
-  const targetProjects = useMemo(
-    () => (scopeSlug ? projects.filter((p) => p.slug === scopeSlug) : projects),
-    [projects, scopeSlug],
-  );
+
+  const loadRevisions = async (slug: string, nextStatuses: RevisionStatus[]) => {
+    const targets = slug ? projects.filter((p) => p.slug === slug) : projects;
+    if (targets.length === 0) return [] as RevisionListRow[];
+    const responses = await Promise.all(
+      targets.map((project) => api.projectRevisions(project.slug, nextStatuses)),
+    );
+    const merged = responses.flatMap((res) => res.revisions);
+    merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return merged;
+  };
+
+  const queueQueryKey = (slug: string, nextTab: QueueFilter) => {
+    const targets = slug ? projects.filter((p) => p.slug === slug) : projects;
+    return ["review-queue", slug || "__all__", nextTab, targets.map((p) => p.slug).join(",")] as const;
+  };
 
   const revisionsQuery = useQuery({
-    queryKey: [
-      "review-queue",
-      scopeSlug || "__all__",
-      tab,
-      targetProjects.map((p) => p.slug).join(","),
-    ],
-    queryFn: async () => {
-      if (targetProjects.length === 0) return [] as RevisionListRow[];
-      const responses = await Promise.all(
-        targetProjects.map((project) => api.projectRevisions(project.slug, statuses)),
-      );
-      const merged = responses.flatMap((res) => res.revisions);
-      merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      return merged;
-    },
+    queryKey: queueQueryKey(scopeSlug, tab),
+    queryFn: () => loadRevisions(scopeSlug, statuses),
     enabled: projects.length > 0,
   });
+
+  const changeTab = (nextTab: QueueFilter) => {
+    startTransition(async () => {
+      await queryClient.prefetchQuery({
+        queryKey: queueQueryKey(scopeSlug, nextTab),
+        queryFn: () => loadRevisions(scopeSlug, STATUS_MAP[nextTab]),
+      });
+      setTab(nextTab);
+    });
+  };
+
+  const changeScope = (nextSlug: string) => {
+    startTransition(async () => {
+      await queryClient.prefetchQuery({
+        queryKey: queueQueryKey(nextSlug, tab),
+        queryFn: () => loadRevisions(nextSlug, statuses),
+      });
+      setScopeSlug(nextSlug);
+    });
+  };
+
+  const prefetchRevision = (revisionId: string) => {
+    void queryClient.prefetchQuery({
+      queryKey: ["revision", revisionId],
+      queryFn: () => api.revisionDetail(revisionId),
+    });
+  };
 
   const invalidateAll = async (revisionId: string) => {
     await Promise.all([
@@ -181,6 +238,11 @@ export function ReviewQueuePage() {
   };
 
   const rows = revisionsQuery.data ?? [];
+  const scopeOptions = [
+    { value: "", label: `全部项目 (${projects.length})` },
+    ...projects.map((p) => ({ value: p.slug, label: p.slug })),
+  ];
+  const selectedScope = scopeOptions.find((p) => p.value === scopeSlug) ?? null;
 
   return (
     <div className="space-y-5">
@@ -188,20 +250,37 @@ export function ReviewQueuePage() {
         <h1 className="text-base font-semibold tracking-tight text-ink">审批队列</h1>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Select
-            id="review-project-filter"
-            aria-label="筛选项目"
-            value={scopeSlug}
-            onChange={(e) => setScopeSlug(e.target.value)}
-            className="h-7 min-w-[160px] font-mono"
+          <Combobox
+            items={scopeOptions}
+            value={selectedScope}
+            onValueChange={(next) => changeScope(next?.value ?? "")}
+            itemToStringLabel={(item) => item.label}
+            itemToStringValue={(item) => item.value}
+            isItemEqualToValue={(item, current) => item.value === current.value}
           >
-            <option value="">全部项目 ({projects.length})</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.slug}>
-                {p.slug}
-              </option>
-            ))}
-          </Select>
+            <ComboboxTrigger
+              id="review-project-filter"
+              aria-label="筛选项目"
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 min-w-[160px] justify-between font-mono"
+                />
+              }
+            >
+              <ComboboxValue />
+            </ComboboxTrigger>
+            <ComboboxContent>
+              <ComboboxList>
+                {(item) => (
+                  <ComboboxItem key={item.value} value={item}>
+                    {item.label}
+                  </ComboboxItem>
+                )}
+              </ComboboxList>
+            </ComboboxContent>
+          </Combobox>
           <Button
             variant="outline"
             size="sm"
@@ -224,11 +303,20 @@ export function ReviewQueuePage() {
         />
       ) : null}
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as QueueFilter)}>
+      <Tabs value={tab} onValueChange={(v) => changeTab(v as QueueFilter)}>
         <TabsList>
-          <TabsTrigger value="queue">待处理</TabsTrigger>
-          <TabsTrigger value="approved">已批准</TabsTrigger>
-          <TabsTrigger value="history">历史记录</TabsTrigger>
+          <TabsTrigger value="queue">
+            <Inbox aria-hidden="true" />
+            待处理
+          </TabsTrigger>
+          <TabsTrigger value="approved">
+            <CheckCircle2 aria-hidden="true" />
+            已批准
+          </TabsTrigger>
+          <TabsTrigger value="history">
+            <History aria-hidden="true" />
+            历史记录
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -256,7 +344,8 @@ export function ReviewQueuePage() {
             const isBusy = busyId === row.id;
             const errorMsg = rowError[row.id];
             return (
-              <li key={row.id} className="p-4 space-y-3">
+              <FadeTransition key={row.id}>
+                <li className="p-4 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge
@@ -267,7 +356,15 @@ export function ReviewQueuePage() {
                     <span className="font-mono text-xs font-semibold text-ink">
                       {row.project_slug}
                     </span>
-                    <CopyableHash value={row.id} />
+                    <span
+                      style={
+                        sharedRevisionId === row.id
+                          ? { viewTransitionName: "revision-identity" }
+                          : undefined
+                      }
+                    >
+                      <CopyableHash value={row.id} />
+                    </span>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
@@ -331,6 +428,14 @@ export function ReviewQueuePage() {
                         ? "border-amber-500 bg-amber-50 text-amber-950 hover:bg-amber-100"
                         : "border-zinc-300 bg-white text-ink hover:bg-subtle",
                     )}
+                    onPointerEnter={() => {
+                      setSharedRevisionId(row.id);
+                      prefetchRevision(row.id);
+                    }}
+                    onFocus={() => {
+                      setSharedRevisionId(row.id);
+                      prefetchRevision(row.id);
+                    }}
                   >
                     {row.status === "conflict" ? (
                       <>
@@ -382,7 +487,7 @@ export function ReviewQueuePage() {
                       ) : null}
 
                       <Button
-                        variant="destructiveOutline"
+                        variant="destructive"
                         size="xs"
                         disabled={isBusy}
                         onClick={() => setConfirmTarget({ kind: "reject", row })}
@@ -393,7 +498,8 @@ export function ReviewQueuePage() {
                     </div>
                   ) : null}
                 </div>
-              </li>
+                </li>
+              </FadeTransition>
             );
           })}
         </ul>

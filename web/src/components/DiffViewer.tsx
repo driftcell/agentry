@@ -141,7 +141,7 @@ export function DiffViewer({
             <div key={label} className="border border-hairline bg-paper p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-xs font-semibold text-ink">{label}</span>
-                <Badge variant="muted">二进制</Badge>
+                <Badge variant="secondary">二进制</Badge>
               </div>
               {side && side.sha256 ? (
                 <>
