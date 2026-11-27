@@ -178,6 +178,35 @@ pub async fn issue_api_key(
     scopes: &[String],
     is_global: bool,
 ) -> Result<(Uuid, String)> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(AppError::bad_request(
+            "INVALID_ARGUMENT",
+            "API key name must not be empty",
+        ));
+    }
+
+    let duplicate: Option<Uuid> = sqlx::query_scalar(
+        r#"
+        SELECT id
+        FROM api_keys
+        WHERE revoked_at IS NULL
+          AND lower(btrim(name)) = lower($1)
+          AND (($2::uuid IS NULL AND is_global) OR default_project_id = $2)
+        LIMIT 1
+        "#,
+    )
+    .bind(name)
+    .bind(project_id)
+    .fetch_optional(db)
+    .await?;
+    if duplicate.is_some() {
+        return Err(AppError::conflict(
+            "KEY_NAME_TAKEN",
+            format!("an API key named `{name}` already exists in this scope"),
+        ));
+    }
+
     let mut last_error = None;
     for _ in 0..3 {
         let (plaintext, prefix, hash) = generate_api_key();

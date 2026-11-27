@@ -50,6 +50,7 @@ pub(super) async fn list_keys(
         JOIN users u ON u.id = k.user_id
         LEFT JOIN projects p ON p.id = k.default_project_id
         WHERE k.default_project_id = $1
+          AND k.revoked_at IS NULL
         ORDER BY k.created_at DESC
         "#,
     )
@@ -202,6 +203,7 @@ pub(super) async fn list_all_keys(
         FROM api_keys k
         JOIN users u ON u.id = k.user_id
         LEFT JOIN projects p ON p.id = k.default_project_id
+        WHERE k.revoked_at IS NULL
         ORDER BY k.is_global DESC, k.created_at DESC
         "#,
     )
