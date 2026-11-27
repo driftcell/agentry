@@ -1,8 +1,10 @@
-
-
 use crate::error::ToolError;
 
-pub fn paginate<T: Clone>(items: &[T], cursor: Option<&str>, page_size: usize) -> Result<(Vec<T>, Option<String>), ToolError> {
+pub fn paginate<T: Clone>(
+    items: &[T],
+    cursor: Option<&str>,
+    page_size: usize,
+) -> Result<(Vec<T>, Option<String>), ToolError> {
     let offset = match cursor {
         None => 0,
         Some(cursor) => {
@@ -23,13 +25,9 @@ pub fn paginate<T: Clone>(items: &[T], cursor: Option<&str>, page_size: usize) -
     let page = items[offset..end].to_vec();
     let next = if end < items.len() {
         use base64::Engine;
-        Some(
-            base64::engine::general_purpose::URL_SAFE_NO_PAD
-                .encode(end.to_string().as_bytes()),
-        )
+        Some(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(end.to_string().as_bytes()))
     } else {
         None
     };
     Ok((page, next))
 }
-

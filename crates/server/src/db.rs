@@ -12,7 +12,9 @@ pub async fn connect(config: &Config) -> Result<PgPool> {
         .acquire_timeout(Duration::from_secs(10))
         .connect(&config.database_url)
         .await
-        .with_context(|| "connect to PostgreSQL (check DATABASE_URL and that the server is running)")?;
+        .with_context(
+            || "connect to PostgreSQL (check DATABASE_URL and that the server is running)",
+        )?;
     sqlx::query("SELECT 1")
         .execute(&pool)
         .await

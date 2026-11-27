@@ -1,7 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-
-
 use super::model::{KindFilter, WorkspaceFile, WorkspaceSummary};
 
 pub fn render_tree(files: &HashMap<String, WorkspaceFile>, filter: KindFilter) -> WorkspaceSummary {
@@ -42,9 +40,13 @@ pub fn render_tree(files: &HashMap<String, WorkspaceFile>, filter: KindFilter) -
     }
 
     let mut out = String::new();
-    fn walk(node: &DirNode, prefix: &str, out: &mut String, files: &HashMap<String, WorkspaceFile>) {
+    fn walk(node: &DirNode, prefix: &str, out: &mut String) {
         for (name, child) in &node.children {
-            let path = if prefix.is_empty() { name.clone() } else { format!("{prefix}/{name}") };
+            let path = if prefix.is_empty() {
+                name.clone()
+            } else {
+                format!("{prefix}/{name}")
+            };
             out.push_str(&format!(
                 "{}{}/  [{} tokens, {} files]\n",
                 "  ".repeat(path.matches('/').count()),
@@ -52,7 +54,7 @@ pub fn render_tree(files: &HashMap<String, WorkspaceFile>, filter: KindFilter) -
                 child.tokens,
                 child.file_count
             ));
-            walk(child, &path, out, files);
+            walk(child, &path, out);
         }
         for (name, (description, tokens)) in &node.files {
             let depth = prefix.matches('/').count() + usize::from(!prefix.is_empty());
@@ -65,7 +67,7 @@ pub fn render_tree(files: &HashMap<String, WorkspaceFile>, filter: KindFilter) -
             ));
         }
     }
-    walk(&root, "", &mut out, files);
+    walk(&root, "", &mut out);
 
     WorkspaceSummary {
         project: String::new(),
@@ -100,16 +102,26 @@ pub fn direct_children(
     files: &HashMap<String, WorkspaceFile>,
     directory: &str,
 ) -> (Vec<String>, Vec<String>) {
-    let prefix = if directory.is_empty() { String::new() } else { format!("{directory}/") };
+    let prefix = if directory.is_empty() {
+        String::new()
+    } else {
+        format!("{directory}/")
+    };
     let mut dirs = BTreeSet::new();
     let mut file_paths = BTreeSet::new();
     for path in files.keys() {
-        let Some(rest) = path.strip_prefix(&prefix) else { continue };
+        let Some(rest) = path.strip_prefix(&prefix) else {
+            continue;
+        };
         if rest.is_empty() {
             continue;
         }
         if let Some((first, _)) = rest.split_once('/') {
-            let child = if prefix.is_empty() { first.to_string() } else { format!("{prefix}{first}") };
+            let child = if prefix.is_empty() {
+                first.to_string()
+            } else {
+                format!("{prefix}{first}")
+            };
             dirs.insert(child);
         } else {
             file_paths.insert(path.clone());
@@ -117,4 +129,3 @@ pub fn direct_children(
     }
     (dirs.into_iter().collect(), file_paths.into_iter().collect())
 }
-

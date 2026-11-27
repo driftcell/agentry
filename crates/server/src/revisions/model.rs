@@ -1,4 +1,3 @@
-
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -126,7 +125,11 @@ pub struct ConflictView {
 
 impl From<&ConflictDetail> for ConflictView {
     fn from(detail: &ConflictDetail) -> Self {
-        Self { path: detail.path.clone(), hunks: detail.hunks, lines: detail.lines.clone() }
+        Self {
+            path: detail.path.clone(),
+            hunks: detail.hunks,
+            lines: detail.lines.clone(),
+        }
     }
 }
 
@@ -145,7 +148,11 @@ pub struct Actor {
 
 impl Actor {
     pub fn from_web(user: &WebUser) -> Self {
-        Self { user_id: Some(user.id), api_key_id: None, label: user.label() }
+        Self {
+            user_id: Some(user.id),
+            api_key_id: None,
+            label: user.label(),
+        }
     }
 
     pub fn from_mcp(ctx: &ProjectContext) -> Self {
@@ -179,15 +186,11 @@ pub struct Resolution {
 
 /// Load the files present in a revision snapshot. Deleted rows are part of the
 /// diff history but are not part of the current tree.
-
 pub fn revision_is_stale(project: &Project, revision: &Revision) -> bool {
     revision.merged_against_revision_id != project.active_revision_id
 }
 
-pub fn ensure_revision_project(
-    revision: &Revision,
-    project: &Project,
-) -> Result<(), ToolError> {
+pub fn ensure_revision_project(revision: &Revision, project: &Project) -> Result<(), ToolError> {
     if revision.project_id == project.id {
         Ok(())
     } else {

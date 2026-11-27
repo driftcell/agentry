@@ -1,4 +1,3 @@
-
 use serde::Serialize;
 
 use crate::error::ToolError;
@@ -60,5 +59,3 @@ impl KindFilter {
         }
     }
 }
-
-

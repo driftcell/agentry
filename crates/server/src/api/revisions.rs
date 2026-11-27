@@ -10,9 +10,7 @@ use crate::AppState;
 use super::projects::project_for_user;
 use crate::auth::WebUser;
 use crate::error::{AppError, Result};
-use crate::project::{
-    Project, require_project_access,
-};
+use crate::project::{Project, require_project_access};
 use crate::revisions::{
     self, Actor, FileSide, Resolution, Revision, RevisionFileView, RevisionStatus, approve,
     get_revision, reject, revision_conflicts, revision_files, revision_is_stale,
@@ -60,7 +58,10 @@ pub(super) async fn project_revisions(
     if let Some(statuses) = &statuses {
         for status in statuses {
             if RevisionStatus::parse(status).is_none() {
-                return Err(AppError::bad_request("INVALID_ARGUMENT", format!("unknown status {status}")));
+                return Err(AppError::bad_request(
+                    "INVALID_ARGUMENT",
+                    format!("unknown status {status}"),
+                ));
             }
         }
     }
@@ -149,25 +150,23 @@ pub(super) async fn revision_detail(
 }
 
 pub(super) async fn author_label(state: &AppState, revision: &Revision) -> String {
-    if let Some(user_id) = revision.author_user_id {
-        if let Ok(Some(name)) =
+    if let Some(user_id) = revision.author_user_id
+        && let Ok(Some(name)) =
             sqlx::query_scalar::<_, String>("SELECT username FROM users WHERE id = $1")
                 .bind(user_id)
                 .fetch_optional(&state.db)
                 .await
-        {
-            return name;
-        }
+    {
+        return name;
     }
-    if let Some(key_id) = revision.author_api_key_id {
-        if let Ok(Some(prefix)) =
+    if let Some(key_id) = revision.author_api_key_id
+        && let Ok(Some(prefix)) =
             sqlx::query_scalar::<_, String>("SELECT key_prefix FROM api_keys WHERE id = $1")
                 .bind(key_id)
                 .fetch_optional(&state.db)
                 .await
-        {
-            return format!("key:{prefix}");
-        }
+    {
+        return format!("key:{prefix}");
     }
     "system".to_string()
 }
@@ -209,7 +208,10 @@ pub(super) async fn approve_revision(
     Json(input): Json<ApproveInput>,
 ) -> Result<Json<Value>> {
     if !user.is_admin() {
-        return Err(AppError::forbidden("FORBIDDEN", "human approval requires an admin user"));
+        return Err(AppError::forbidden(
+            "FORBIDDEN",
+            "human approval requires an admin user",
+        ));
     }
     let (project, _) = ensure_revision_access(&state, &user, id).await?;
     let revision = approve(
@@ -237,7 +239,10 @@ pub(super) async fn reject_revision(
     Json(input): Json<RejectInput>,
 ) -> Result<Json<Value>> {
     if !user.is_admin() {
-        return Err(AppError::forbidden("FORBIDDEN", "human rejection requires an admin user"));
+        return Err(AppError::forbidden(
+            "FORBIDDEN",
+            "human rejection requires an admin user",
+        ));
     }
     let (project, _) = ensure_revision_access(&state, &user, id).await?;
     let revision = reject(
@@ -274,7 +279,10 @@ pub(super) async fn resolve_revision(
     Json(input): Json<ResolveInput>,
 ) -> Result<Json<Value>> {
     if !user.is_admin() {
-        return Err(AppError::forbidden("FORBIDDEN", "conflict resolution requires an admin user"));
+        return Err(AppError::forbidden(
+            "FORBIDDEN",
+            "conflict resolution requires an admin user",
+        ));
     }
     let (project, existing) = ensure_revision_access(&state, &user, id).await?;
     let commit_message = input
@@ -284,18 +292,15 @@ pub(super) async fn resolve_revision(
     let resolutions: Vec<Resolution> = input
         .resolutions
         .into_iter()
-        .map(|r| Resolution { path: r.path, content: r.content, oss_key: r.oss_key })
+        .map(|r| Resolution {
+            path: r.path,
+            content: r.content,
+            oss_key: r.oss_key,
+        })
         .collect();
     let actor = Actor::from_web(&user);
-    let revision = revisions::resolve_conflict(
-        &state,
-        &project,
-        id,
-        &actor,
-        resolutions,
-        &commit_message,
-    )
-    .await?;
+    let revision =
+        revisions::resolve_conflict(&state, &project, id, &actor, resolutions, &commit_message)
+            .await?;
     Ok(Json(json!({"revision": revision})))
 }
-

@@ -1,12 +1,12 @@
 use std::time::Instant;
 
 use rmcp::ErrorData;
+use rmcp::RoleServer;
 use rmcp::ServerHandler;
 use rmcp::model::{
     CallToolRequestParams, CallToolResponse, CallToolResult, Implementation, ListToolsResult,
     PaginatedRequestParams, ServerCapabilities, ServerConfig, Tool, ToolAnnotations,
 };
-use rmcp::RoleServer;
 use rmcp::service::RequestContext;
 
 use crate::AppState;
@@ -102,7 +102,10 @@ impl AdminServer {
                 let args: PlatformArgs = parse_args(request.arguments.clone())?;
                 self.manage_platform(ctx, args).await.map(tool_json)
             }
-            other => Err(ToolError::new("UNKNOWN_TOOL", format!("unknown tool {other}"))),
+            other => Err(ToolError::new(
+                "UNKNOWN_TOOL",
+                format!("unknown tool {other}"),
+            )),
         }
     }
 }
@@ -131,7 +134,14 @@ impl ServerHandler for AdminServer {
         let started = Instant::now();
         let result = ListToolsResult::with_all_items(Self::tools());
         if let Ok(ctx) = request_project_context(&context) {
-            crate::stats::record(&self.state.db, Some(&ctx), ctx.endpoint(), "tools/list", "ok", started);
+            crate::stats::record(
+                &self.state.db,
+                Some(&ctx),
+                ctx.endpoint(),
+                "tools/list",
+                "ok",
+                started,
+            );
         }
         Ok(result)
     }
@@ -145,7 +155,14 @@ impl ServerHandler for AdminServer {
         let ctx = match request_project_context(&context) {
             Ok(ctx) => ctx,
             Err(error) => {
-                crate::stats::record(&self.state.db, None, "admin/mcp", &request.name, "error", started);
+                crate::stats::record(
+                    &self.state.db,
+                    None,
+                    "admin/mcp",
+                    &request.name,
+                    "error",
+                    started,
+                );
                 return Ok(error.into_call_result().into());
             }
         };
@@ -165,7 +182,6 @@ impl ServerHandler for AdminServer {
         })
     }
 }
-
 
 mod args;
 mod platform;

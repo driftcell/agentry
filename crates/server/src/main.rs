@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
 use agentry::config::{Config, StorageBackend};
 use agentry::storage::StorageHandle;
 use agentry::{AppState, build_router, db, lifecycle, seed};
+use anyhow::{Context, Result};
 use tokio::net::TcpListener;
 
 #[tokio::main]
@@ -13,6 +13,9 @@ async fn main() -> Result<()> {
     if config.environment == "production" && config.storage_backend != StorageBackend::S3 {
         anyhow::bail!("STORAGE_BACKEND must be s3 when APP_ENV=production");
     }
+    // Initialise the tokenizer before accepting requests so the first
+    // outline/section read does not pay the one-time vocab load.
+    let _ = agentry::tokens::count_tokens("warmup");
 
     let pool = db::connect(&config).await?;
     db::migrate(&pool).await?;
@@ -76,7 +79,10 @@ fn init_tracing() {
         .map(|v| v.eq_ignore_ascii_case("json"))
         .unwrap_or(false);
     if json {
-        tracing_subscriber::fmt().with_env_filter(filter).json().init();
+        tracing_subscriber::fmt()
+            .with_env_filter(filter)
+            .json()
+            .init();
     } else {
         tracing_subscriber::fmt().with_env_filter(filter).init();
     }
@@ -84,7 +90,9 @@ fn init_tracing() {
 
 async fn shutdown_signal() {
     let ctrl_c = async {
-        tokio::signal::ctrl_c().await.expect("install Ctrl-C handler");
+        tokio::signal::ctrl_c()
+            .await
+            .expect("install Ctrl-C handler");
     };
     #[cfg(unix)]
     let terminate = async {

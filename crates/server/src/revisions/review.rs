@@ -1,4 +1,3 @@
-
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::json;
@@ -10,10 +9,12 @@ use crate::auth::WebUser;
 use crate::error::AppError;
 use crate::project::Project;
 
-use super::model::*;
-use super::audit::insert_audit;
-use super::store::{get_revision, load_revision_for_update, revision_conflicts};
 use super::activate::activate_in_tx;
+use super::audit::insert_audit;
+use super::model::*;
+use super::store::{
+    get_revision, load_revision_for_update, lock_project_active, revision_conflicts,
+};
 
 /// Compact review status used by both the admin MCP and the Web API.
 #[derive(Debug, Clone, Serialize)]
@@ -67,7 +68,6 @@ pub async fn review_status(
 }
 
 /// Ensure that a revision belongs to the project in a Tool context.
-
 pub async fn approve(
     state: &AppState,
     project: &Project,
@@ -77,18 +77,29 @@ pub async fn approve(
     activate_now: bool,
 ) -> Result<Revision, AppError> {
     if comment.chars().count() > 5000 {
-        return Err(AppError::bad_request("INVALID_ARGUMENT", "comment is too long"));
+        return Err(AppError::bad_request(
+            "INVALID_ARGUMENT",
+            "comment is too long",
+        ));
     }
     let actor = Actor::from_web(reviewer);
     let mut tx = state.db.begin().await.map_err(AppError::from_db)?;
+    // Consistent lock order with activation: project row first, then revision.
+    lock_project_active(&mut tx, project.id).await?;
     let revision = load_revision_for_update(&mut tx, revision_id).await?;
     if revision.project_id != project.id {
-        return Err(AppError::not_found("REVISION_NOT_FOUND", "revision not found"));
+        return Err(AppError::not_found(
+            "REVISION_NOT_FOUND",
+            "revision not found",
+        ));
     }
     if revision.status != STATUS_PENDING {
         return Err(AppError::conflict(
             "REVISION_STATE",
-            format!("revision is {}; only pending_review revisions can be approved", revision.status),
+            format!(
+                "revision is {}; only pending_review revisions can be approved",
+                revision.status
+            ),
         ));
     }
 
@@ -131,13 +142,20 @@ pub async fn reject(
     comment: &str,
 ) -> Result<Revision, AppError> {
     if comment.chars().count() > 5000 {
-        return Err(AppError::bad_request("INVALID_ARGUMENT", "comment is too long"));
+        return Err(AppError::bad_request(
+            "INVALID_ARGUMENT",
+            "comment is too long",
+        ));
     }
     let actor = Actor::from_web(reviewer);
     let mut tx = state.db.begin().await.map_err(AppError::from_db)?;
+    lock_project_active(&mut tx, project.id).await?;
     let revision = load_revision_for_update(&mut tx, revision_id).await?;
     if revision.project_id != project.id {
-        return Err(AppError::not_found("REVISION_NOT_FOUND", "revision not found"));
+        return Err(AppError::not_found(
+            "REVISION_NOT_FOUND",
+            "revision not found",
+        ));
     }
     let status = RevisionStatus::parse(&revision.status)
         .ok_or_else(|| AppError::internal("unknown revision status"))?;

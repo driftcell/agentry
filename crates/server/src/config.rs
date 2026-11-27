@@ -42,7 +42,10 @@ pub struct Config {
 }
 
 fn var(name: &str) -> Option<String> {
-    env::var(name).ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
+    env::var(name)
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
 }
 
 fn var_or(name: &str, default: &str) -> String {
@@ -75,8 +78,8 @@ impl Config {
     /// configuration.
     pub fn from_env() -> Result<Self> {
         let environment = var_or("APP_ENV", "development");
-        let database_url = var("DATABASE_URL")
-            .ok_or_else(|| anyhow::anyhow!("DATABASE_URL is required"))?;
+        let database_url =
+            var("DATABASE_URL").ok_or_else(|| anyhow::anyhow!("DATABASE_URL is required"))?;
         let parsed_db = Url::parse(&database_url)
             .context("DATABASE_URL must be a valid URL (postgres://user:pass@host/db)")?;
         if !matches!(parsed_db.scheme(), "postgres" | "postgresql") {
@@ -89,8 +92,9 @@ impl Config {
         }
 
         let public_url = var_or("SERVER_PUBLIC_URL", "http://localhost:8080");
-        let public = Url::parse(&public_url)
-            .context("SERVER_PUBLIC_URL must be an absolute URL, e.g. https://registry.example.com")?;
+        let public = Url::parse(&public_url).context(
+            "SERVER_PUBLIC_URL must be an absolute URL, e.g. https://registry.example.com",
+        )?;
         if public.host_str().is_none() {
             bail!("SERVER_PUBLIC_URL must include a host");
         }
@@ -104,17 +108,22 @@ impl Config {
             })
             .unwrap_or_default();
 
-        let storage_backend = match var_or("STORAGE_BACKEND", "s3").to_ascii_lowercase().as_str() {
+        let storage_backend = match var_or("STORAGE_BACKEND", "s3")
+            .to_ascii_lowercase()
+            .as_str()
+        {
             "s3" | "oss" => StorageBackend::S3,
             "memory" => StorageBackend::Memory,
             other => bail!("STORAGE_BACKEND must be s3 or memory, got {other:?}"),
         };
 
         let oss = if storage_backend == StorageBackend::S3 {
-            let endpoint = var("OSS_ENDPOINT")
-                .ok_or_else(|| anyhow::anyhow!("OSS_ENDPOINT is required when STORAGE_BACKEND=s3"))?;
-            let endpoint_url = Url::parse(&endpoint)
-                .context("OSS_ENDPOINT must be an absolute URL, e.g. https://oss-cn-hangzhou.aliyuncs.com")?;
+            let endpoint = var("OSS_ENDPOINT").ok_or_else(|| {
+                anyhow::anyhow!("OSS_ENDPOINT is required when STORAGE_BACKEND=s3")
+            })?;
+            let endpoint_url = Url::parse(&endpoint).context(
+                "OSS_ENDPOINT must be an absolute URL, e.g. https://oss-cn-hangzhou.aliyuncs.com",
+            )?;
             if !matches!(endpoint_url.scheme(), "http" | "https") {
                 bail!("OSS_ENDPOINT must use http:// or https://");
             }

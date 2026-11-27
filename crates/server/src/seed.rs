@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
-use argon2::password_hash::{PasswordHasher, PasswordVerifier, phc::PasswordHash};
 use argon2::Argon2;
+use argon2::password_hash::{PasswordHasher, PasswordVerifier, phc::PasswordHash};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -28,14 +28,12 @@ pub fn verify_password(password: &str, hash: &str) -> bool {
     let Ok(parsed) = PasswordHash::new(hash) else {
         return false;
     };
-    Argon2::default().verify_password(password.as_bytes(), &parsed).is_ok()
+    Argon2::default()
+        .verify_password(password.as_bytes(), &parsed)
+        .is_ok()
 }
 
-pub async fn seed(
-    db: &PgPool,
-    storage: &StorageHandle,
-    config: &Config,
-) -> Result<SeedReport> {
+pub async fn seed(db: &PgPool, storage: &StorageHandle, config: &Config) -> Result<SeedReport> {
     let mut user_created = false;
     let existing_admin: Option<Uuid> =
         sqlx::query_scalar("SELECT id FROM users WHERE username = $1")
@@ -63,10 +61,12 @@ pub async fn seed(
             match inserted {
                 Some(id) => id,
                 // A concurrent seed won the insert; use the existing row.
-                None => sqlx::query_scalar("SELECT id FROM users WHERE username = $1")
-                    .bind(&config.seed_admin_username)
-                    .fetch_one(db)
-                    .await?,
+                None => {
+                    sqlx::query_scalar("SELECT id FROM users WHERE username = $1")
+                        .bind(&config.seed_admin_username)
+                        .fetch_one(db)
+                        .await?
+                }
             }
         }
     };
@@ -121,7 +121,7 @@ pub async fn seed(
         let blob = ingest_bytes(
             db,
             storage,
-            &sample.path,
+            sample.path,
             Some(sample.media_type),
             &sample.bytes,
         )
@@ -139,12 +139,11 @@ pub async fn seed(
     let mut tx = db.begin().await?;
     // Re-check under a row lock so concurrent seeds cannot create two initial
     // revisions.
-    let active: Option<Uuid> = sqlx::query_scalar(
-        "SELECT active_revision_id FROM projects WHERE id = $1 FOR UPDATE",
-    )
-    .bind(project_id)
-    .fetch_one(&mut *tx)
-    .await?;
+    let active: Option<Uuid> =
+        sqlx::query_scalar("SELECT active_revision_id FROM projects WHERE id = $1 FOR UPDATE")
+            .bind(project_id)
+            .fetch_one(&mut *tx)
+            .await?;
     if let Some(active) = active {
         tx.rollback().await?;
         return Ok(SeedReport {
@@ -393,10 +392,26 @@ workbench.
     ];
 
     vec![
-        SampleFile { path: "CLAUDE.md", media_type: "text/markdown", bytes: claude.into() },
-        SampleFile { path: "AGENTS.md", media_type: "text/markdown", bytes: agents.into() },
-        SampleFile { path: "README.md", media_type: "text/markdown", bytes: readme.into() },
-        SampleFile { path: "docs/architecture.md", media_type: "text/markdown", bytes: docs.into() },
+        SampleFile {
+            path: "CLAUDE.md",
+            media_type: "text/markdown",
+            bytes: claude.into(),
+        },
+        SampleFile {
+            path: "AGENTS.md",
+            media_type: "text/markdown",
+            bytes: agents.into(),
+        },
+        SampleFile {
+            path: "README.md",
+            media_type: "text/markdown",
+            bytes: readme.into(),
+        },
+        SampleFile {
+            path: "docs/architecture.md",
+            media_type: "text/markdown",
+            bytes: docs.into(),
+        },
         SampleFile {
             path: "skills/reviewer/SKILL.md",
             media_type: "text/markdown",
@@ -417,7 +432,11 @@ workbench.
             media_type: "text/markdown",
             bytes: subagent.into(),
         },
-        SampleFile { path: "assets/mark.png", media_type: "image/png", bytes: png.to_vec() },
+        SampleFile {
+            path: "assets/mark.png",
+            media_type: "image/png",
+            bytes: png.to_vec(),
+        },
     ]
 }
 

@@ -16,7 +16,11 @@ pub struct AppError {
 
 impl AppError {
     pub fn new(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
-        Self { status, code, message: message.into() }
+        Self {
+            status,
+            code,
+            message: message.into(),
+        }
     }
 
     pub fn bad_request(code: &'static str, message: impl Into<String>) -> Self {
@@ -50,7 +54,11 @@ impl AppError {
 
     pub fn from_db(err: sqlx::Error) -> Self {
         tracing::error!(error = %err, "database error");
-        Self::new(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "internal server error")
+        Self::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            "internal server error",
+        )
     }
 }
 
@@ -88,14 +96,22 @@ impl From<sqlx::Error> for AppError {
 impl From<anyhow::Error> for AppError {
     fn from(value: anyhow::Error) -> Self {
         tracing::error!(error = %value, "internal error");
-        AppError::new(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "internal server error")
+        AppError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            "internal server error",
+        )
     }
 }
 
 impl From<std::io::Error> for AppError {
     fn from(value: std::io::Error) -> Self {
         tracing::error!(error = %value, "io error");
-        AppError::new(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "internal server error")
+        AppError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "INTERNAL_ERROR",
+            "internal server error",
+        )
     }
 }
 
@@ -108,7 +124,10 @@ pub struct ToolError {
 
 impl ToolError {
     pub fn new(code: &'static str, message: impl Into<String>) -> Self {
-        Self { code, message: message.into() }
+        Self {
+            code,
+            message: message.into(),
+        }
     }
 
     pub fn bad_request(message: impl Into<String>) -> Self {
@@ -145,19 +164,12 @@ impl ToolError {
 
 impl From<AppError> for ToolError {
     fn from(value: AppError) -> Self {
-        let code = match value.code {
-            "INVALID_ARGUMENT" => "INVALID_ARGUMENT",
-            "UNAUTHORIZED" => "UNAUTHORIZED",
-            "FORBIDDEN" | "INSUFFICIENT_SCOPE" => "FORBIDDEN",
-            "NOT_FOUND" | "PROJECT_NOT_FOUND" | "REVISION_NOT_FOUND" => "NOT_FOUND",
-            "CONFLICT" => "CONFLICT",
-            "REVISION_STATE" => "REVISION_STATE",
-            _ => "INTERNAL_ERROR",
-        };
-        if code == "INTERNAL_ERROR" {
-            tracing::error!(original = %value.message, "tool error mapped to internal");
+        if value.status.is_server_error() {
+            tracing::error!(code = value.code, original = %value.message, "tool error mapped to internal");
             return ToolError::new("INTERNAL_ERROR", "internal error");
         }
-        ToolError::new(code, value.message)
+        // Client-safe domain code and message are preserved so agents can see
+        // REVISION_STALE, REVISION_STATE, PROJECT_ACCESS_DENIED, etc.
+        ToolError::new(value.code, value.message)
     }
 }

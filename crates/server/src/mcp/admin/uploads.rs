@@ -1,4 +1,3 @@
-
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -6,13 +5,9 @@ use uuid::Uuid;
 use crate::AppState;
 use crate::content::sha256_hex;
 use crate::error::ToolError;
-use crate::paths::{
-    normalize_path, normalize_path_set, shell_quote, staging_key,
-};
+use crate::paths::{normalize_path, normalize_path_set, shell_quote, staging_key};
 use crate::project::{ProjectContext, resolve_tool_project};
-use crate::revisions::{
-    self, Actor, ProposedChange, ProposedFile,
-};
+use crate::revisions::{self, Actor, ProposedChange, ProposedFile};
 
 use super::args::*;
 
@@ -38,24 +33,26 @@ impl super::AdminServer {
             if file.remote_path.trim().is_empty() {
                 return Err(ToolError::bad_request("remote_path must not be empty"));
             }
-            if let Some(local) = &file.local_path_hint {
-                if local.chars().any(|c| c.is_control()) {
-                    return Err(ToolError::bad_request(
-                        "local_path_hint must not contain control characters",
-                    ));
-                }
+            if let Some(local) = &file.local_path_hint
+                && local.chars().any(|c| c.is_control())
+            {
+                return Err(ToolError::bad_request(
+                    "local_path_hint must not contain control characters",
+                ));
             }
-            if let Some(expected) = &file.expected_sha256 {
-                if expected.len() != 64 || !expected.bytes().all(|b| b.is_ascii_hexdigit()) {
-                    return Err(ToolError::bad_request(
-                        "expected_sha256 must be 64 hexadecimal characters",
-                    ));
-                }
+            if let Some(expected) = &file.expected_sha256
+                && (expected.len() != 64 || !expected.bytes().all(|b| b.is_ascii_hexdigit()))
+            {
+                return Err(ToolError::bad_request(
+                    "expected_sha256 must be 64 hexadecimal characters",
+                ));
             }
-            if let Some(size) = file.expected_size {
-                if size < 0 || size as u64 > self.state.config.max_upload_bytes {
-                    return Err(ToolError::bad_request("expected_size is outside the allowed range"));
-                }
+            if let Some(size) = file.expected_size
+                && (size < 0 || size as u64 > self.state.config.max_upload_bytes)
+            {
+                return Err(ToolError::bad_request(
+                    "expected_size is outside the allowed range",
+                ));
             }
             let content_type = sanitize_content_type(file.content_type.as_deref());
             let object_key = staging_key(project.id, session_id, path);
@@ -65,10 +62,7 @@ impl super::AdminServer {
                 .presign_put(&object_key, self.state.config.transfer_ttl)
                 .await
                 .map_err(|e| ToolError::internal(format!("sign upload: {e}")))?;
-            let local = file
-                .local_path_hint
-                .clone()
-                .unwrap_or_else(|| path.clone());
+            let local = file.local_path_hint.clone().unwrap_or_else(|| path.clone());
             let command = format!(
                 "curl -fsS -X PUT -T {} -H {} {}",
                 shell_quote(&local),
@@ -86,7 +80,10 @@ impl super::AdminServer {
                 path: path.clone(),
                 object_key,
                 content_type,
-                expected_sha256: file.expected_sha256.as_ref().map(|s| s.to_ascii_lowercase()),
+                expected_sha256: file
+                    .expected_sha256
+                    .as_ref()
+                    .map(|s| s.to_ascii_lowercase()),
                 expected_size: file.expected_size,
                 local_path_hint: file.local_path_hint.clone(),
             });
@@ -133,8 +130,8 @@ impl super::AdminServer {
         ctx.require_scope("admin:propose")?;
         let project = resolve_tool_project(&self.state, ctx, args.project_slug.as_deref()).await?;
         if args.session_id.is_none()
-            && args.inline_patches.as_ref().map_or(true, |p| p.is_empty())
-            && args.deletions.as_ref().map_or(true, |d| d.is_empty())
+            && args.inline_patches.as_ref().is_none_or(|p| p.is_empty())
+            && args.deletions.as_ref().is_none_or(|d| d.is_empty())
         {
             return Err(ToolError::bad_request(
                 "provide session_id, inline_patches and/or deletions",
@@ -156,7 +153,10 @@ impl super::AdminServer {
                     .execute(&self.state.db)
                     .await
                     .ok();
-                return Err(ToolError::conflict("transfer session has expired"));
+                return Err(ToolError::new(
+                    "SESSION_EXPIRED",
+                    "transfer session has expired",
+                ));
             }
             for file in &session.files {
                 let bytes = match self.state.storage.get(&file.object_key).await {
@@ -175,35 +175,31 @@ impl super::AdminServer {
                     )));
                 }
                 let digest = sha256_hex(&bytes);
-                if let Some(expected) = &file.expected_sha256 {
-                    if expected.to_ascii_lowercase() != digest {
-                        sqlx::query(
-                            "UPDATE transfer_sessions SET status = 'failed' WHERE id = $1",
-                        )
+                if let Some(expected) = &file.expected_sha256
+                    && expected.to_ascii_lowercase() != digest
+                {
+                    sqlx::query("UPDATE transfer_sessions SET status = 'failed' WHERE id = $1")
                         .bind(session_id)
                         .execute(&self.state.db)
                         .await
                         .ok();
-                        return Err(ToolError::new(
-                            "DIGEST_MISMATCH",
-                            format!("{} does not match its expected SHA-256", file.path),
-                        ));
-                    }
+                    return Err(ToolError::new(
+                        "DIGEST_MISMATCH",
+                        format!("{} does not match its expected SHA-256", file.path),
+                    ));
                 }
-                if let Some(expected) = file.expected_size {
-                    if expected as u64 != bytes.len() as u64 {
-                        sqlx::query(
-                            "UPDATE transfer_sessions SET status = 'failed' WHERE id = $1",
-                        )
+                if let Some(expected) = file.expected_size
+                    && expected as u64 != bytes.len() as u64
+                {
+                    sqlx::query("UPDATE transfer_sessions SET status = 'failed' WHERE id = $1")
                         .bind(session_id)
                         .execute(&self.state.db)
                         .await
                         .ok();
-                        return Err(ToolError::new(
-                            "SIZE_MISMATCH",
-                            format!("{} does not match its expected size", file.path),
-                        ));
-                    }
+                    return Err(ToolError::new(
+                        "SIZE_MISMATCH",
+                        format!("{} does not match its expected size", file.path),
+                    ));
                 }
                 changes.push(ProposedChange::Upsert(ProposedFile {
                     path: file.path.clone(),
@@ -286,7 +282,6 @@ impl super::AdminServer {
             },
         }))
     }
-
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -310,14 +305,18 @@ async fn load_transfer_session(
     session_id: Uuid,
     project_id: Uuid,
 ) -> Result<TransferSession, ToolError> {
-    let row: Option<(Uuid, String, chrono::DateTime<chrono::Utc>, sqlx::types::Json<Value>)> =
-        sqlx::query_as(
-            "SELECT project_id, status, expires_at, files FROM transfer_sessions WHERE id = $1",
-        )
-        .bind(session_id)
-        .fetch_optional(&state.db)
-        .await
-        .map_err(|e| ToolError::internal(format!("load transfer session: {e}")))?;
+    let row: Option<(
+        Uuid,
+        String,
+        chrono::DateTime<chrono::Utc>,
+        sqlx::types::Json<Value>,
+    )> = sqlx::query_as(
+        "SELECT project_id, status, expires_at, files FROM transfer_sessions WHERE id = $1",
+    )
+    .bind(session_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| ToolError::internal(format!("load transfer session: {e}")))?;
     let (row_project, status, expires_at, files) =
         row.ok_or_else(|| ToolError::not_found("transfer session not found"))?;
     if row_project != project_id {
@@ -325,16 +324,20 @@ async fn load_transfer_session(
     }
     let files: Vec<StagedFile> = serde_json::from_value(files.0)
         .map_err(|e| ToolError::internal(format!("decode transfer session: {e}")))?;
-    Ok(TransferSession { status, expires_at, files })
+    Ok(TransferSession {
+        status,
+        expires_at,
+        files,
+    })
 }
 
 fn sanitize_content_type(value: Option<&str>) -> String {
     let candidate = value.unwrap_or("application/octet-stream").trim();
     let valid = !candidate.is_empty()
         && candidate.len() <= 200
-        && candidate
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '+' | '-' | '.' | ';' | '=' | ' '));
+        && candidate.chars().all(|c| {
+            c.is_ascii_alphanumeric() || matches!(c, '/' | '+' | '-' | '.' | ';' | '=' | ' ')
+        });
     if valid {
         candidate.to_string()
     } else {

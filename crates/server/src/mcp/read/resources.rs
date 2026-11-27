@@ -1,9 +1,6 @@
 use std::time::Duration;
 
-use rmcp::model::{
-    ListResourcesResult,
-    PaginatedRequestParams, ResourceContents,
-};
+use rmcp::model::{ListResourcesResult, PaginatedRequestParams, ResourceContents};
 
 use crate::AppState;
 use crate::content::blob_by_id;
@@ -11,10 +8,9 @@ use crate::error::ToolError;
 use crate::paths::normalize_path;
 use crate::project::Project;
 use crate::workspace::{
-    all_directories, direct_children, load_active_files,
-    paginate, resource_for_directory, resource_for_file,
+    all_directories, direct_children, load_active_files, paginate, resource_for_directory,
+    resource_for_file,
 };
-
 
 pub(super) fn skill_path_from_uri(project: &Project, uri: &str) -> Option<String> {
     let rest = uri.strip_prefix("skill://")?;
@@ -63,11 +59,10 @@ pub(super) async fn read_resource_contents(
         .map_err(|e| ToolError::internal(format!("load blob: {e}")))?
         .ok_or_else(|| ToolError::not_found("resource not found"))?;
     if blob.is_text {
-        Ok(ResourceContents::text(
-            blob.text_content.unwrap_or_default(),
-            uri,
+        Ok(
+            ResourceContents::text(blob.text_content.unwrap_or_default(), uri)
+                .with_mime_type(blob.media_type),
         )
-        .with_mime_type(blob.media_type))
     } else {
         let key = blob
             .object_key
@@ -88,6 +83,28 @@ pub(super) async fn read_resource_contents(
     }
 }
 
+fn parse_directory_uri(uri: &str) -> Option<(String, String, Option<String>)> {
+    if let Some((slug, path)) = crate::paths::parse_resource_uri(uri) {
+        return Some((slug, path, None));
+    }
+    let rest = uri.strip_prefix("skill://")?;
+    let (slug, rest) = rest.split_once('/')?;
+    let (name, relative) = rest.split_once('/').unwrap_or((rest, ""));
+    if name.is_empty() || name == "SKILL.md" || name.contains('.') {
+        return None;
+    }
+    let relative = percent_encoding::percent_decode_str(relative.trim_end_matches('/'))
+        .decode_utf8()
+        .ok()?;
+    let relative = relative.trim_matches('/');
+    let directory = if relative.is_empty() {
+        format!("skills/{name}")
+    } else {
+        format!("skills/{name}/{relative}")
+    };
+    Some((slug.to_string(), directory, Some(name.to_string())))
+}
+
 impl super::ReadServer {
     pub(super) async fn list_resources_page(
         &self,
@@ -99,7 +116,11 @@ impl super::ReadServer {
             .map_err(ToolError::from)?;
         let mut paths: Vec<String> = files.keys().cloned().collect();
         paths.sort();
-        let (page, next) = paginate(&paths, request.as_ref().and_then(|r| r.cursor.as_deref()), 100)?;
+        let (page, next) = paginate(
+            &paths,
+            request.as_ref().and_then(|r| r.cursor.as_deref()),
+            100,
+        )?;
         let resources = page
             .iter()
             .filter_map(|path| files.get(path))
@@ -116,7 +137,7 @@ impl super::ReadServer {
         uri: &str,
         cursor: Option<&str>,
     ) -> Result<ListResourcesResult, ToolError> {
-        let (slug, mut directory) = crate::paths::parse_resource_uri(uri)
+        let (slug, mut directory, skill_name) = parse_directory_uri(uri)
             .ok_or_else(|| ToolError::not_found("directory resource not found"))?;
         if slug != project.slug {
             return Err(ToolError::not_found("directory resource not found"));
@@ -133,20 +154,52 @@ impl super::ReadServer {
             return Err(ToolError::not_found("directory not found"));
         }
         let (dirs, file_paths) = direct_children(&files, &directory);
-        let mut children: Vec<rmcp::model::Resource> = dirs
-            .iter()
-            .map(|dir| resource_for_directory(project, dir))
-            .collect();
-        children.extend(
-            file_paths
-                .iter()
-                .filter_map(|path| files.get(path))
-                .map(|file| resource_for_file(project, file)),
-        );
+        let mut children: Vec<rmcp::model::Resource> = if let Some(name) = &skill_name {
+            dirs.iter()
+                .map(|dir| {
+                    let relative = dir
+                        .strip_prefix(&format!("skills/{name}/"))
+                        .unwrap_or(dir)
+                        .trim_end_matches('/');
+                    let uri = format!(
+                        "{}/",
+                        crate::paths::skill_file_uri(&project.slug, name, relative)
+                    );
+                    rmcp::model::Resource::new(uri, relative.to_string())
+                        .with_mime_type(rmcp::model::DIRECTORY_MIME_TYPE)
+                })
+                .collect()
+        } else {
+            dirs.iter()
+                .map(|dir| resource_for_directory(project, dir))
+                .collect()
+        };
+        if let Some(name) = &skill_name {
+            children.extend(file_paths.iter().filter_map(|path| {
+                let relative = path.strip_prefix(&format!("skills/{name}/"))?;
+                let uri = if relative == "SKILL.md" {
+                    crate::paths::skill_uri(&project.slug, name)
+                } else {
+                    crate::paths::skill_file_uri(&project.slug, name, relative)
+                };
+                let file = files.get(path)?;
+                Some(
+                    rmcp::model::Resource::new(uri, relative.to_string())
+                        .with_mime_type(file.media_type.clone())
+                        .with_size(file.size_bytes.max(0) as u64),
+                )
+            }));
+        } else {
+            children.extend(
+                file_paths
+                    .iter()
+                    .filter_map(|path| files.get(path))
+                    .map(|file| resource_for_file(project, file)),
+            );
+        }
         let (page, next) = paginate(&children, cursor, 100)?;
         let mut result = ListResourcesResult::with_all_items(page);
         result.next_cursor = next;
         Ok(result)
     }
 }
-

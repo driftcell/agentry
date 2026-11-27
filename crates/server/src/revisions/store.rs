@@ -69,6 +69,18 @@ pub async fn load_snapshot(
         .collect())
 }
 
+pub(super) async fn lock_project_active(
+    tx: &mut Transaction<'_, Postgres>,
+    project_id: Uuid,
+) -> Result<Option<Uuid>, AppError> {
+    sqlx::query_scalar("SELECT active_revision_id FROM projects WHERE id = $1 FOR UPDATE")
+        .bind(project_id)
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(AppError::from_db)?
+        .ok_or_else(|| AppError::not_found("PROJECT_NOT_FOUND", "project not found"))
+}
+
 pub(super) async fn load_revision_for_update(
     tx: &mut Transaction<'_, Postgres>,
     revision_id: Uuid,
@@ -119,7 +131,6 @@ pub async fn get_revision_for_project(
 /// Propose an immutable revision. All content hashes, token counts and the
 /// three-way merge are computed here, before the transaction, so a failure
 /// cannot leave a partially-visible revision.
-
 pub async fn revision_files(
     db: &PgPool,
     project: &Project,
@@ -169,8 +180,8 @@ pub async fn revision_conflicts(
     Ok(rows
         .into_iter()
         .map(|(path, json)| {
-            let mut detail: ConflictDetail = serde_json::from_value(json.0)
-                .unwrap_or(ConflictDetail {
+            let mut detail: ConflictDetail =
+                serde_json::from_value(json.0).unwrap_or(ConflictDetail {
                     path: path.clone(),
                     hunks: 1,
                     lines: vec![1],
@@ -211,8 +222,7 @@ pub async fn file_side(
     path: &str,
     side: &str,
 ) -> Result<FileSide, AppError> {
-    let path = normalize_path(path)
-        .map_err(|e| AppError::bad_request("INVALID_PATH", e))?;
+    let path = normalize_path(path).map_err(|e| AppError::bad_request("INVALID_PATH", e))?;
     let revision_id = match side {
         "incoming" => revision.id,
         "base" => revision
@@ -272,7 +282,15 @@ pub async fn file_side(
             .ok_or_else(|| AppError::internal("binary blob has no object key"))?;
         let url = state
             .storage
-            .presign_get(key, state.config.oss.as_ref().map(|o| o.presign_ttl).unwrap_or(std::time::Duration::from_secs(600)))
+            .presign_get(
+                key,
+                state
+                    .config
+                    .oss
+                    .as_ref()
+                    .map(|o| o.presign_ttl)
+                    .unwrap_or(std::time::Duration::from_secs(600)),
+            )
             .await
             .map_err(|e| AppError::internal(format!("presign binary blob: {e}")))?;
         Ok(FileSide {
@@ -301,10 +319,7 @@ pub async fn get_revision_for_tool(
     Ok(revision)
 }
 
-pub async fn list_review_queue(
-    db: &PgPool,
-    project_id: Uuid,
-) -> Result<Vec<Revision>, AppError> {
+pub async fn list_review_queue(db: &PgPool, project_id: Uuid) -> Result<Vec<Revision>, AppError> {
     let rows = sqlx::query_as::<_, Revision>(
         r#"
         SELECT id, project_id, base_revision_id, merged_against_revision_id, status,
@@ -384,4 +399,3 @@ pub async fn read_text_for_revision_path(
         Ok(None)
     }
 }
-

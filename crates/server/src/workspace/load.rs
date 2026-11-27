@@ -25,7 +25,11 @@ pub async fn load_active_files(
                 if path.ends_with("/SKILL.md") || path == "SKILL.md" {
                     parse_frontmatter(text)
                         .and_then(|front| {
-                            front.value.get("description").and_then(|v| v.as_str()).map(|s| s.to_string())
+                            front
+                                .value
+                                .get("description")
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string())
                         })
                         .unwrap_or_else(|| one_line_description(text, 100))
                 } else {

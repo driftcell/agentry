@@ -21,7 +21,8 @@ pub fn normalize_path(input: &str) -> Result<String, String> {
     if input.contains('\\') {
         return Err("backslashes are not allowed in workspace paths".into());
     }
-    if input.len() >= 2 && input.as_bytes()[1] == b':' && input.as_bytes()[0].is_ascii_alphabetic() {
+    if input.len() >= 2 && input.as_bytes()[1] == b':' && input.as_bytes()[0].is_ascii_alphabetic()
+    {
         return Err("drive-letter paths are not allowed".into());
     }
     if input.chars().any(|c| c.is_control()) {
@@ -75,7 +76,10 @@ pub fn validate_slug(slug: &str) -> Result<(), String> {
     {
         return Err("project slug must start with a lowercase letter or digit".into());
     }
-    if !bytes.last().is_some_and(|b| b.is_ascii_lowercase() || b.is_ascii_digit()) {
+    if !bytes
+        .last()
+        .is_some_and(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+    {
         return Err("project slug must end with a lowercase letter or digit".into());
     }
     if !bytes
@@ -103,7 +107,10 @@ pub fn bundle_key(project_id: uuid::Uuid, bundle_id: uuid::Uuid) -> String {
 }
 
 pub fn single_bundle_key(project_id: uuid::Uuid, bundle_id: uuid::Uuid, path: &str) -> String {
-    format!("bundles/{project_id}/{bundle_id}/{}", sanitize_object_component(path))
+    format!(
+        "bundles/{project_id}/{bundle_id}/{}",
+        sanitize_object_component(path)
+    )
 }
 
 fn sanitize_object_component(path: &str) -> String {
@@ -182,6 +189,22 @@ pub fn skill_uri(slug: &str, name: &str) -> String {
     )
 }
 
+pub fn skill_file_uri(slug: &str, name: &str, relative: &str) -> String {
+    format!(
+        "skill://{slug}/{}/{}",
+        percent_encoding::utf8_percent_encode(name, PATH_SEGMENT),
+        relative
+            .split('/')
+            .map(|segment| percent_encoding::utf8_percent_encode(segment, PATH_SEGMENT).to_string())
+            .collect::<Vec<_>>()
+            .join("/")
+    )
+}
+
+pub fn encode_path_segment(segment: &str) -> String {
+    percent_encoding::utf8_percent_encode(segment, PATH_SEGMENT).to_string()
+}
+
 const PATH_SEGMENT: &percent_encoding::AsciiSet = &percent_encoding::CONTROLS
     .add(b' ')
     .add(b'"')
@@ -242,7 +265,10 @@ mod tests {
             normalize_path("skills/reviewer/SKILL.md").unwrap(),
             "skills/reviewer/SKILL.md"
         );
-        assert_eq!(normalize_path("docs/with space.md").unwrap(), "docs/with space.md");
+        assert_eq!(
+            normalize_path("docs/with space.md").unwrap(),
+            "docs/with space.md"
+        );
     }
 
     #[test]

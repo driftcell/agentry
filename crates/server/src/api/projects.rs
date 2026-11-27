@@ -41,15 +41,24 @@ pub(super) async fn create_project(
     Json(input): Json<CreateProjectInput>,
 ) -> Result<Json<Value>> {
     if !user.is_admin() {
-        return Err(AppError::forbidden("FORBIDDEN", "project creation requires an admin user"));
+        return Err(AppError::forbidden(
+            "FORBIDDEN",
+            "project creation requires an admin user",
+        ));
     }
     validate_slug(&input.slug).map_err(|e| AppError::bad_request("INVALID_PROJECT", e))?;
     if input.name.trim().is_empty() {
-        return Err(AppError::bad_request("INVALID_ARGUMENT", "name is required"));
+        return Err(AppError::bad_request(
+            "INVALID_ARGUMENT",
+            "name is required",
+        ));
     }
     let budget = input.token_budget.unwrap_or(200_000);
     if budget <= 0 {
-        return Err(AppError::bad_request("INVALID_ARGUMENT", "token_budget must be positive"));
+        return Err(AppError::bad_request(
+            "INVALID_ARGUMENT",
+            "token_budget must be positive",
+        ));
     }
     let project_id: Uuid = sqlx::query_scalar(
         r#"
@@ -100,7 +109,11 @@ pub(super) async fn project_detail(
     Ok(Json(json!({"project": project, "active_revision": active})))
 }
 
-pub(super) async fn project_for_user(state: &AppState, user: &WebUser, slug: &str) -> Result<Project> {
+pub(super) async fn project_for_user(
+    state: &AppState,
+    user: &WebUser,
+    slug: &str,
+) -> Result<Project> {
     let project = load_project_by_slug(&state.db, slug)
         .await?
         .ok_or_else(|| AppError::not_found("PROJECT_NOT_FOUND", "project not found"))?;
@@ -209,4 +222,3 @@ pub(super) async fn project_file(
         })))
     }
 }
-

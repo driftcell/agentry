@@ -12,9 +12,15 @@ use crate::AppState;
 /// inspect what was uploaded. Revisions never reference staging objects, only
 /// immutable blobs, so cleanup cannot corrupt an activated revision.
 pub async fn cleanup_expired_sessions(state: &AppState) -> Result<usize, anyhow::Error> {
-    let rows: Vec<(Uuid, Uuid, String, Option<chrono::DateTime<chrono::Utc>>, Value)> =
-        sqlx::query_as(
-            r#"
+    type SessionRow = (
+        Uuid,
+        Uuid,
+        String,
+        Option<chrono::DateTime<chrono::Utc>>,
+        Value,
+    );
+    let rows: Vec<SessionRow> = sqlx::query_as(
+        r#"
             SELECT id, project_id, status, completed_at, files
             FROM transfer_sessions
             WHERE objects_cleaned_at IS NULL
@@ -25,9 +31,9 @@ pub async fn cleanup_expired_sessions(state: &AppState) -> Result<usize, anyhow:
                     AND created_at < now() - interval '1 hour')
               )
             "#,
-        )
-        .fetch_all(&state.db)
-        .await?;
+    )
+    .fetch_all(&state.db)
+    .await?;
 
     let mut cleaned = 0;
     for (id, project_id, status, _completed_at, files) in rows {
@@ -44,7 +50,11 @@ pub async fn cleanup_expired_sessions(state: &AppState) -> Result<usize, anyhow:
                 tracing::warn!(%error, %key, "failed to delete staging object");
             }
         }
-        let new_status = if status == "open" { "expired" } else { "completed" };
+        let new_status = if status == "open" {
+            "expired"
+        } else {
+            "completed"
+        };
         sqlx::query(
             r#"
             UPDATE transfer_sessions
@@ -65,7 +75,9 @@ pub async fn cleanup_expired_sessions(state: &AppState) -> Result<usize, anyhow:
             "#,
         )
         .bind(project_id)
-        .bind(sqlx::types::Json(serde_json::json!({"session_id": id, "previous_status": status})))
+        .bind(sqlx::types::Json(
+            serde_json::json!({"session_id": id, "previous_status": status}),
+        ))
         .execute(&state.db)
         .await;
         cleaned += 1;
@@ -76,13 +88,12 @@ pub async fn cleanup_expired_sessions(state: &AppState) -> Result<usize, anyhow:
 /// Delete staging objects for one completed session. Called immediately after
 /// a successful proposal; failures are picked up by the periodic cleanup.
 pub async fn discard_session_objects(state: &AppState, session_id: Uuid) {
-    let row: Option<(Value,)> =
-        sqlx::query_as("SELECT files FROM transfer_sessions WHERE id = $1")
-            .bind(session_id)
-            .fetch_optional(&state.db)
-            .await
-            .ok()
-            .flatten();
+    let row: Option<(Value,)> = sqlx::query_as("SELECT files FROM transfer_sessions WHERE id = $1")
+        .bind(session_id)
+        .fetch_optional(&state.db)
+        .await
+        .ok()
+        .flatten();
     let Some((files,)) = row else { return };
     if let Some(files) = files.as_array() {
         for file in files {

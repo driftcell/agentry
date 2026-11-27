@@ -55,10 +55,10 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 }
 
 pub fn media_type_for_path(path: &str, declared: Option<&str>) -> String {
-    if let Some(declared) = declared {
-        if !declared.trim().is_empty() {
-            return declared.trim().to_ascii_lowercase();
-        }
+    if let Some(declared) = declared
+        && !declared.trim().is_empty()
+    {
+        return declared.trim().to_ascii_lowercase();
     }
     let lower = path.to_ascii_lowercase();
     if lower.ends_with(".md") || lower.ends_with(".markdown") {
@@ -117,8 +117,8 @@ pub async fn ingest_bytes(
     let (token_count, token_status, token_error, outline) = if let Some(text) = &text {
         match try_count_tokens(text) {
             Ok(count) => {
-                let outline = is_markdown_path(path)
-                    .then(|| sqlx::types::Json(parse_markdown(text).outline));
+                let outline =
+                    is_markdown_path(path).then(|| sqlx::types::Json(parse_markdown(text).outline));
                 (Some(count as i32), "ok".to_string(), None, outline)
             }
             Err(error) => (None, "failed".to_string(), Some(error), None),
@@ -132,7 +132,7 @@ pub async fn ingest_bytes(
     } else {
         let key = blob_key(&sha256);
         storage
-            .put(&key, Bytes::copy_from_slice(bytes))
+            .put(&key, Bytes::copy_from_slice(bytes), Some(&media_type))
             .await
             .with_context(|| format!("upload blob {sha256}"))?;
         Some(key)
@@ -254,7 +254,10 @@ mod tests {
     #[test]
     fn media_types_are_stable_for_markdown_and_binaries() {
         assert_eq!(media_type_for_path("CLAUDE.md", None), "text/markdown");
-        assert_eq!(media_type_for_path("skills/x/SKILL.md", None), "text/markdown");
+        assert_eq!(
+            media_type_for_path("skills/x/SKILL.md", None),
+            "text/markdown"
+        );
         assert_eq!(media_type_for_path("assets/logo.png", None), "image/png");
         assert_eq!(
             media_type_for_path("data.bin", Some("application/octet-stream")),

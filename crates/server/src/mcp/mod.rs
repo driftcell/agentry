@@ -43,7 +43,20 @@ pub fn mcp_router(state: AppState) -> Router<AppState> {
         .route_service("/mcp/projects/{slug}", read_service)
         .route_service("/admin/mcp", admin_service.clone())
         .route_service("/admin/mcp/projects/{slug}", admin_service)
+        .route("/mcp/{*rest}", axum::routing::any(mcp_not_found))
+        .route("/admin/mcp/{*rest}", axum::routing::any(mcp_not_found))
         .layer(middleware::from_fn_with_state(state, mcp_auth_middleware))
+}
+
+async fn mcp_not_found() -> axum::response::Response {
+    use axum::response::IntoResponse;
+    (
+        axum::http::StatusCode::NOT_FOUND,
+        axum::Json(
+            serde_json::json!({"error": {"code": "NOT_FOUND", "message": "unknown MCP route"}}),
+        ),
+    )
+        .into_response()
 }
 
 fn streamable_config(state: &AppState) -> StreamableHttpServerConfig {
@@ -61,10 +74,9 @@ fn streamable_config(state: &AppState) -> StreamableHttpServerConfig {
         if let Some(host) = url::Url::parse(&state.config.public_url)
             .ok()
             .and_then(|u| u.host_str().map(str::to_string))
+            && !hosts.contains(&host)
         {
-            if !hosts.contains(&host) {
-                hosts.push(host);
-            }
+            hosts.push(host);
         }
         hosts
     } else {
@@ -115,11 +127,15 @@ async fn mcp_auth_middleware(
 
 /// Extract the middleware-resolved context from the HTTP request parts that
 /// rmcp attaches to every request.
-pub fn request_project_context(ctx: &RequestContext<RoleServer>) -> Result<ProjectContext, ToolError> {
+pub fn request_project_context(
+    ctx: &RequestContext<RoleServer>,
+) -> Result<ProjectContext, ToolError> {
     let parts = ctx
         .extensions
         .get::<http::request::Parts>()
-        .ok_or_else(|| ToolError::new("PROJECT_CONTEXT_REQUIRED", "missing HTTP request context"))?;
+        .ok_or_else(|| {
+            ToolError::new("PROJECT_CONTEXT_REQUIRED", "missing HTTP request context")
+        })?;
     parts
         .extensions
         .get::<ProjectContext>()
@@ -131,9 +147,8 @@ pub fn parse_args<T: serde::de::DeserializeOwned>(
     arguments: Option<rmcp::model::JsonObject>,
 ) -> Result<T, ToolError> {
     let value = serde_json::Value::Object(arguments.unwrap_or_default());
-    serde_json::from_value(value).map_err(|e| {
-        ToolError::bad_request(format!("invalid arguments: {e}"))
-    })
+    serde_json::from_value(value)
+        .map_err(|e| ToolError::bad_request(format!("invalid arguments: {e}")))
 }
 
 pub fn tool_json(value: serde_json::Value) -> rmcp::model::CallToolResult {

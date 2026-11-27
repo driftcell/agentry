@@ -32,9 +32,15 @@ pub(super) struct CreateUserInput {
     role: Option<String>,
 }
 
-pub(super) async fn list_users(user: WebUser, State(state): State<AppState>) -> Result<Json<Value>> {
+pub(super) async fn list_users(
+    user: WebUser,
+    State(state): State<AppState>,
+) -> Result<Json<Value>> {
     if !user.can_platform() {
-        return Err(AppError::forbidden("FORBIDDEN", "user management requires a superadmin"));
+        return Err(AppError::forbidden(
+            "FORBIDDEN",
+            "user management requires a superadmin",
+        ));
     }
     let users: Vec<UserRow> = sqlx::query_as(
         r#"
@@ -54,7 +60,10 @@ pub(super) async fn create_user(
     Json(input): Json<CreateUserInput>,
 ) -> Result<Json<Value>> {
     if !user.can_platform() {
-        return Err(AppError::forbidden("FORBIDDEN", "user management requires a superadmin"));
+        return Err(AppError::forbidden(
+            "FORBIDDEN",
+            "user management requires a superadmin",
+        ));
     }
     let username = input.username.trim();
     if !(3..=64).contains(&username.len())
@@ -92,9 +101,16 @@ pub(super) async fn create_user(
     .fetch_one(&state.db)
     .await
     .map_err(map_unique_violation("username already exists"))?;
-    insert_web_audit(&state, None, None, &user, "create_user", json!({"user_id": id, "role": role})).await;
+    insert_web_audit(
+        &state,
+        None,
+        None,
+        &user,
+        "create_user",
+        json!({"user_id": id, "role": role}),
+    )
+    .await;
     Ok(Json(json!({
         "user": {"id": id, "username": username, "display_name": input.display_name, "role": role}
     })))
 }
-

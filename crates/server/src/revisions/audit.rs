@@ -1,4 +1,3 @@
-
 use serde_json::Value;
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
@@ -35,4 +34,3 @@ pub(super) async fn insert_audit(
     .map_err(AppError::from_db)?;
     Ok(())
 }
-

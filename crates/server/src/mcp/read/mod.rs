@@ -1,24 +1,20 @@
 use std::time::Instant;
 
 use rmcp::ErrorData;
+use rmcp::RoleServer;
 use rmcp::ServerHandler;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResponse, CallToolResult, GetSkillRequestParams,
-    GetSkillResult, Implementation, ListResourcesResult, ListSkillsResult, ListToolsResult,
-    PaginatedRequestParams, ReadResourceDirectoryRequestParams, ReadResourceRequestParams,
-    ReadResourceResponse, ReadResourceResult, ServerCapabilities, ServerConfig,
-    Tool, ToolAnnotations,
+    CallToolRequestParams, CallToolResponse, CallToolResult, GetSkillRequestParams, GetSkillResult,
+    Implementation, ListResourcesResult, ListSkillsResult, ListToolsResult, PaginatedRequestParams,
+    ReadResourceDirectoryRequestParams, ReadResourceRequestParams, ReadResourceResponse,
+    ReadResourceResult, ServerCapabilities, ServerConfig, Tool, ToolAnnotations,
 };
-use rmcp::RoleServer;
 use rmcp::service::RequestContext;
 
 use crate::AppState;
 use crate::error::ToolError;
 use crate::project::ProjectContext;
-use crate::workspace::{
-    collect_skill_entries, load_active_files,
-    paginate,
-};
+use crate::workspace::{collect_skill_entries, load_active_files, paginate};
 
 use super::{parse_args, request_project_context, tool_json};
 
@@ -83,7 +79,10 @@ impl ReadServer {
                 let args: BundleArgs = parse_args(request.arguments.clone())?;
                 self.pull_bundle_url(ctx, args).await.map(tool_json)
             }
-            other => Err(ToolError::new("UNKNOWN_TOOL", format!("unknown tool {other}"))),
+            other => Err(ToolError::new(
+                "UNKNOWN_TOOL",
+                format!("unknown tool {other}"),
+            )),
         }
     }
 }
@@ -114,7 +113,14 @@ impl ServerHandler for ReadServer {
         let started = Instant::now();
         let result = ListToolsResult::with_all_items(Self::tools());
         if let Ok(ctx) = request_project_context(&context) {
-            crate::stats::record(&self.state.db, Some(&ctx), ctx.endpoint(), "tools/list", "ok", started);
+            crate::stats::record(
+                &self.state.db,
+                Some(&ctx),
+                ctx.endpoint(),
+                "tools/list",
+                "ok",
+                started,
+            );
         }
         Ok(result)
     }
@@ -154,7 +160,7 @@ impl ServerHandler for ReadServer {
         context: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, ErrorData> {
         let started = Instant::now();
-        let ctx = request_project_context(&context).map_err(|e| protocol_error(e))?;
+        let ctx = request_project_context(&context).map_err(protocol_error)?;
         let project = ctx.project().map_err(protocol_error)?;
         let result = self.list_resources_page(project, request).await;
         crate::stats::record(
@@ -174,11 +180,14 @@ impl ServerHandler for ReadServer {
         context: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResponse, ErrorData> {
         let started = Instant::now();
-        let ctx = request_project_context(&context).map_err(|e| protocol_error(e))?;
+        let ctx = request_project_context(&context).map_err(protocol_error)?;
         let project = ctx.project().map_err(protocol_error)?;
         let result = async {
-            let files = load_active_files(&self.state.db, project).await.map_err(ToolError::from)?;
-            let contents = read_resource_contents(&self.state, project, &files, &request.uri).await?;
+            let files = load_active_files(&self.state.db, project)
+                .await
+                .map_err(ToolError::from)?;
+            let contents =
+                read_resource_contents(&self.state, project, &files, &request.uri).await?;
             Ok::<_, ToolError>(ReadResourceResult::new(vec![contents]))
         }
         .await;
@@ -199,9 +208,11 @@ impl ServerHandler for ReadServer {
         context: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, ErrorData> {
         let started = Instant::now();
-        let ctx = request_project_context(&context).map_err(|e| protocol_error(e))?;
+        let ctx = request_project_context(&context).map_err(protocol_error)?;
         let project = ctx.project().map_err(protocol_error)?;
-        let result = self.directory_page(project, &request.uri, request.cursor.as_deref()).await;
+        let result = self
+            .directory_page(project, &request.uri, request.cursor.as_deref())
+            .await;
         crate::stats::record(
             &self.state.db,
             Some(&ctx),
@@ -219,15 +230,21 @@ impl ServerHandler for ReadServer {
         context: RequestContext<RoleServer>,
     ) -> Result<ListSkillsResult, ErrorData> {
         let started = Instant::now();
-        let ctx = request_project_context(&context).map_err(|e| protocol_error(e))?;
+        let ctx = request_project_context(&context).map_err(protocol_error)?;
         let project = ctx.project().map_err(protocol_error)?;
         let result = async {
-            let files = load_active_files(&self.state.db, project).await.map_err(ToolError::from)?;
+            let files = load_active_files(&self.state.db, project)
+                .await
+                .map_err(ToolError::from)?;
             let entries = collect_skill_entries(&self.state.db, project, &files)
                 .await
                 .map_err(ToolError::from)?;
             let skills: Vec<_> = entries.into_iter().map(|e| e.skill).collect();
-            let (page, next) = paginate(&skills, request.as_ref().and_then(|r| r.cursor.as_deref()), 50)?;
+            let (page, next) = paginate(
+                &skills,
+                request.as_ref().and_then(|r| r.cursor.as_deref()),
+                50,
+            )?;
             let mut result = ListSkillsResult::with_all_items(page);
             result.next_cursor = next;
             Ok::<_, ToolError>(result)
@@ -250,10 +267,12 @@ impl ServerHandler for ReadServer {
         context: RequestContext<RoleServer>,
     ) -> Result<GetSkillResult, ErrorData> {
         let started = Instant::now();
-        let ctx = request_project_context(&context).map_err(|e| protocol_error(e))?;
+        let ctx = request_project_context(&context).map_err(protocol_error)?;
         let project = ctx.project().map_err(protocol_error)?;
         let result = async {
-            let files = load_active_files(&self.state.db, project).await.map_err(ToolError::from)?;
+            let files = load_active_files(&self.state.db, project)
+                .await
+                .map_err(ToolError::from)?;
             let entries = collect_skill_entries(&self.state.db, project, &files)
                 .await
                 .map_err(ToolError::from)?;

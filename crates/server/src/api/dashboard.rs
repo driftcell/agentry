@@ -151,4 +151,3 @@ pub(super) async fn dashboard(
         "projects": projects,
     })))
 }
-

@@ -13,9 +13,7 @@ use crate::paths::{
 };
 use crate::project::ProjectContext;
 use crate::tokens::{count_tokens, truncate_to_tokens};
-use crate::workspace::{
-    KindFilter, load_active_files, render_tree,
-};
+use crate::workspace::{KindFilter, load_active_files, render_tree};
 
 use super::args::*;
 
@@ -66,18 +64,22 @@ impl super::ReadServer {
             ));
         }
         let text = blob.text_content.clone().unwrap_or_default();
-        let file_tokens = blob.token_count.unwrap_or_else(|| count_tokens(&text) as i32);
+        let file_tokens = blob
+            .token_count
+            .unwrap_or_else(|| count_tokens(&text) as i32);
         let mode = args.mode;
 
         match mode {
             ReadMode::Outline => {
-                let outline = blob.outline.as_ref().map(|json| json.0.clone()).unwrap_or_else(|| {
-                    Outline {
+                let outline = blob
+                    .outline
+                    .as_ref()
+                    .map(|json| json.0.clone())
+                    .unwrap_or_else(|| Outline {
                         total_tokens: file_tokens as usize,
                         preamble_tokens: file_tokens as usize,
                         sections: Vec::new(),
-                    }
-                });
+                    });
                 let content = render_outline(&outline);
                 let returned_tokens = count_tokens(&content);
                 Ok(json!({
@@ -94,9 +96,13 @@ impl super::ReadServer {
                 let query = args.section.as_deref().ok_or_else(|| {
                     ToolError::bad_request("section is required when mode=section")
                 })?;
-                let outline = blob.outline.as_ref().map(|json| json.0.clone()).ok_or_else(|| {
-                    ToolError::new("NOT_MARKDOWN", "this file has no Markdown outline")
-                })?;
+                let outline = blob
+                    .outline
+                    .as_ref()
+                    .map(|json| json.0.clone())
+                    .ok_or_else(|| {
+                        ToolError::new("NOT_MARKDOWN", "this file has no Markdown outline")
+                    })?;
                 let section = find_outline_section(&outline, query).ok_or_else(|| {
                     let available = outline
                         .sections
@@ -127,7 +133,9 @@ impl super::ReadServer {
             ReadMode::Full => {
                 let max_tokens = args.max_tokens.unwrap_or(20_000);
                 if max_tokens == 0 || max_tokens > 200_000 {
-                    return Err(ToolError::bad_request("max_tokens must be between 1 and 200000"));
+                    return Err(ToolError::bad_request(
+                        "max_tokens must be between 1 and 200000",
+                    ));
                 }
                 let (content, returned_tokens, truncated) = if file_tokens as usize > max_tokens {
                     let (content, returned) = truncate_to_tokens(&text, max_tokens);
@@ -157,15 +165,16 @@ impl super::ReadServer {
         let files = load_active_files(&self.state.db, project)
             .await
             .map_err(ToolError::from)?;
-        let local_target = validate_local_target(
-            args.local_target_dir.as_deref().unwrap_or("agentry-bundle"),
-        )?;
+        let local_target =
+            validate_local_target(args.local_target_dir.as_deref().unwrap_or("agentry-bundle"))?;
         let mut selected = if let Some(paths) = &args.paths {
             if paths.is_empty() {
-                return Err(ToolError::bad_request("paths must not be empty when provided"));
+                return Err(ToolError::bad_request(
+                    "paths must not be empty when provided",
+                ));
             }
-            let normalized = crate::paths::normalize_path_set(paths)
-                .map_err(ToolError::bad_request)?;
+            let normalized =
+                crate::paths::normalize_path_set(paths).map_err(ToolError::bad_request)?;
             for path in &normalized {
                 if !files.contains_key(path) {
                     return Err(ToolError::not_found(format!(
@@ -239,7 +248,11 @@ impl super::ReadServer {
                     ));
                 }
                 let (path, bytes) = &contents[0];
-                let name = path.rsplit('/').next().unwrap_or("download.bin").to_string();
+                let name = path
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or("download.bin")
+                    .to_string();
                 (
                     single_bundle_key(project.id, bundle_id, path),
                     bytes.clone(),
@@ -256,7 +269,14 @@ impl super::ReadServer {
             .unwrap_or(Duration::from_secs(900));
         self.state
             .storage
-            .put(&key, bytes::Bytes::from(object))
+            .put(
+                &key,
+                bytes::Bytes::from(object),
+                Some(match format {
+                    BundleFormat::TarGz => "application/gzip",
+                    BundleFormat::Single => "application/octet-stream",
+                }),
+            )
             .await
             .map_err(|e| ToolError::internal(format!("store bundle: {e}")))?;
         let url = self

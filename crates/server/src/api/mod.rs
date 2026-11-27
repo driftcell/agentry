@@ -18,7 +18,7 @@ mod users;
 pub fn api_router(state: AppState) -> Router<AppState> {
     use self::auth::{login, logout_handler, me};
     use self::dashboard::dashboard;
-    use self::keys::{issue_key, list_keys, revoke_key};
+    use self::keys::{issue_key, list_all_keys, list_keys, revoke_key};
     use self::projects::{create_project, list_projects, project_detail, project_file, workspace};
     use self::revisions::{
         approve_revision, project_revisions, reject_revision, resolve_revision, revision_detail,
@@ -37,6 +37,7 @@ pub fn api_router(state: AppState) -> Router<AppState> {
         .route("/api/projects/{slug}/file", get(project_file))
         .route("/api/projects/{slug}/revisions", get(project_revisions))
         .route("/api/projects/{slug}/keys", get(list_keys).post(issue_key))
+        .route("/api/keys", get(list_all_keys))
         .route("/api/keys/{id}/revoke", post(revoke_key))
         .route("/api/revisions/{id}", get(revision_detail))
         .route("/api/revisions/{id}/file", get(revision_file))

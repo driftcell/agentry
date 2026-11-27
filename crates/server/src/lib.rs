@@ -22,15 +22,15 @@ use axum::Json;
 use axum::Router;
 use axum::extract::{DefaultBodyLimit, Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
-use axum::routing::get;
 use axum::response::{IntoResponse, Response};
+use axum::routing::get;
 
 use serde_json::json;
 use sqlx::PgPool;
 use tower_http::compression::CompressionLayer;
 use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
-use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 use tower_http::services::{ServeDir, ServeFile};
+use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 
 use crate::config::Config;
 use crate::storage::StorageHandle;
@@ -43,7 +43,10 @@ pub struct AppState {
 }
 
 pub fn build_router(state: AppState) -> Router {
-    let index = format!("{}/index.html", state.config.static_dir.trim_end_matches('/'));
+    let index = format!(
+        "{}/index.html",
+        state.config.static_dir.trim_end_matches('/')
+    );
     let spa = ServeDir::new(state.config.static_dir.clone()).fallback(ServeFile::new(index));
 
     let mut router = Router::new()
@@ -53,7 +56,10 @@ pub fn build_router(state: AppState) -> Router {
         .merge(api::api_router(state.clone()));
     if state.storage.is_memory() {
         router = router
-            .route("/__oss/{*key}", get(memory_get).put(memory_put).delete(memory_delete))
+            .route(
+                "/__oss/{*key}",
+                get(memory_get).put(memory_put).delete(memory_delete),
+            )
             .layer(DefaultBodyLimit::max(
                 state.config.max_upload_bytes as usize + 1024,
             ));
@@ -72,12 +78,23 @@ pub fn build_router(state: AppState) -> Router {
 }
 
 async fn live() -> impl IntoResponse {
-    (StatusCode::OK, Json(json!({"status": "ok", "service": "agentry"})))
+    (
+        StatusCode::OK,
+        Json(json!({
+            "status": "ok",
+            "service": "agentry",
+            "version": env!("CARGO_PKG_VERSION"),
+        })),
+    )
 }
 
 async fn health(State(state): State<AppState>) -> Response {
     let db_ok = db::health(&state.db).await;
-    let status = if db_ok { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
+    let status = if db_ok {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
     let body = json!({
         "status": if db_ok { "ok" } else { "degraded" },
         "service": "agentry",
@@ -93,15 +110,14 @@ fn memory_object_key(path: &str) -> String {
     path.trim_start_matches('/').to_string()
 }
 
-fn memory_sig_params(query: &std::collections::HashMap<String, String>) -> Result<(u64, String), StatusCode> {
+fn memory_sig_params(
+    query: &std::collections::HashMap<String, String>,
+) -> Result<(u64, String), StatusCode> {
     let expires = query
         .get("expires")
         .and_then(|v| v.parse::<u64>().ok())
         .ok_or(StatusCode::FORBIDDEN)?;
-    let sig = query
-        .get("sig")
-        .cloned()
-        .ok_or(StatusCode::FORBIDDEN)?;
+    let sig = query.get("sig").cloned().ok_or(StatusCode::FORBIDDEN)?;
     Ok((expires, sig))
 }
 
@@ -154,7 +170,7 @@ async fn memory_put(
     if body.len() as u64 > state.config.max_upload_bytes {
         return StatusCode::PAYLOAD_TOO_LARGE.into_response();
     }
-    if let Err(error) = state.storage.put(&key, body).await {
+    if let Err(error) = state.storage.put(&key, body, None).await {
         tracing::error!(%error, "memory object put failed");
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }

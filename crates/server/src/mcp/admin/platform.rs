@@ -1,4 +1,3 @@
-
 use serde_json::{Value, json};
 use uuid::Uuid;
 
@@ -62,12 +61,22 @@ impl super::AdminServer {
                 validate_scopes(&scopes)?;
                 let is_global = args.is_global.unwrap_or(false);
                 let target_user = args.user_id.unwrap_or(ctx.key.user_id);
-                if target_user != ctx.key.user_id || is_global || scopes.iter().any(|s| s == "admin:platform") {
-                    if ctx.key.user_role != "superadmin" {
-                        return Err(ToolError::forbidden(
-                            "only a superadmin key may issue global, platform-scoped, or other users' keys",
-                        ));
-                    }
+                let exists: Option<i32> = sqlx::query_scalar("SELECT 1 FROM users WHERE id = $1")
+                    .bind(target_user)
+                    .fetch_optional(&self.state.db)
+                    .await
+                    .map_err(|e| ToolError::internal(format!("load user: {e}")))?;
+                if exists.is_none() {
+                    return Err(ToolError::bad_request("target user does not exist"));
+                }
+                if (target_user != ctx.key.user_id
+                    || is_global
+                    || scopes.iter().any(|s| s == "admin:platform"))
+                    && ctx.key.user_role != "superadmin"
+                {
+                    return Err(ToolError::forbidden(
+                        "only a superadmin key may issue global, platform-scoped, or other users' keys",
+                    ));
                 }
                 let project = if is_global {
                     None
@@ -75,10 +84,7 @@ impl super::AdminServer {
                     let project = resolve_tool_project(&self.state, ctx, Some(slug)).await?;
                     Some(project)
                 } else {
-                    Some(
-                        resolve_tool_project(&self.state, ctx, None)
-                            .await?,
-                    )
+                    Some(resolve_tool_project(&self.state, ctx, None).await?)
                 };
                 let (id, token) = crate::auth::issue_api_key(
                     &self.state.db,
@@ -108,9 +114,9 @@ impl super::AdminServer {
                 }))
             }
             PlatformAction::RevokeApiKey => {
-                let key_id = args
-                    .api_key_id
-                    .ok_or_else(|| ToolError::bad_request("api_key_id is required for revoke_api_key"))?;
+                let key_id = args.api_key_id.ok_or_else(|| {
+                    ToolError::bad_request("api_key_id is required for revoke_api_key")
+                })?;
                 let row: Option<(Uuid, Option<Uuid>, bool)> = sqlx::query_as(
                     "SELECT id, default_project_id, is_global FROM api_keys WHERE id = $1",
                 )
@@ -118,8 +124,8 @@ impl super::AdminServer {
                 .fetch_optional(&self.state.db)
                 .await
                 .map_err(|e| ToolError::internal(format!("load api key: {e}")))?;
-                let (id, default_project, is_global) = row
-                    .ok_or_else(|| ToolError::not_found("API key not found"))?;
+                let (id, default_project, is_global) =
+                    row.ok_or_else(|| ToolError::not_found("API key not found"))?;
                 if !ctx.key.is_global {
                     let bound = ctx.project().ok().map(|p| p.id);
                     if is_global || default_project != bound {
@@ -133,8 +139,13 @@ impl super::AdminServer {
                     .execute(&self.state.db)
                     .await
                     .map_err(|e| ToolError::internal(format!("revoke api key: {e}")))?;
-                audit_platform(&self.state, ctx, "revoke_api_key", json!({"api_key_id": id}))
-                    .await;
+                audit_platform(
+                    &self.state,
+                    ctx,
+                    "revoke_api_key",
+                    json!({"api_key_id": id}),
+                )
+                .await;
                 Ok(json!({"api_key_id": id, "revoked": true}))
             }
             PlatformAction::ListUsers => {
@@ -163,12 +174,7 @@ impl super::AdminServer {
     }
 }
 
-async fn audit_platform(
-    state: &AppState,
-    ctx: &ProjectContext,
-    action: &str,
-    detail: Value,
-) {
+async fn audit_platform(state: &AppState, ctx: &ProjectContext, action: &str, detail: Value) {
     let _ = sqlx::query(
         r#"
         INSERT INTO audit_events
@@ -199,7 +205,12 @@ fn duplicate_or_internal(error: sqlx::Error, duplicate_message: &str) -> ToolErr
 }
 
 fn validate_scopes(scopes: &[String]) -> Result<(), ToolError> {
-    let allowed = ["mcp:read", "admin:propose", "admin:activate", "admin:platform"];
+    let allowed = [
+        "mcp:read",
+        "admin:propose",
+        "admin:activate",
+        "admin:platform",
+    ];
     if scopes.is_empty() {
         return Err(ToolError::bad_request("scopes must not be empty"));
     }
@@ -210,4 +221,3 @@ fn validate_scopes(scopes: &[String]) -> Result<(), ToolError> {
     }
     Ok(())
 }
-

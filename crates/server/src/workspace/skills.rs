@@ -25,9 +25,13 @@ pub async fn collect_skill_entries(
 ) -> Result<Vec<SkillEntry>, AppError> {
     let mut names = BTreeSet::new();
     for path in files.keys() {
-        let Some(rest) = path.strip_prefix("skills/") else { continue };
+        let Some(rest) = path.strip_prefix("skills/") else {
+            continue;
+        };
         let mut parts = rest.split('/');
-        let (Some(name), Some("SKILL.md")) = (parts.next(), parts.next()) else { continue };
+        let (Some(name), Some("SKILL.md")) = (parts.next(), parts.next()) else {
+            continue;
+        };
         if parts.next().is_none() && !name.is_empty() {
             names.insert(name.to_string());
         }
@@ -37,16 +41,24 @@ pub async fn collect_skill_entries(
     for name in names {
         let root = format!("skills/{name}");
         let skill_md_path = format!("{root}/SKILL.md");
-        let Some(workspace_file) = files.get(&skill_md_path) else { continue };
+        let Some(workspace_file) = files.get(&skill_md_path) else {
+            continue;
+        };
         let Some(blob) = blob_by_id(db, workspace_file.blob_id)
             .await
             .map_err(|e| AppError::internal(format!("load skill blob: {e}")))?
         else {
             continue;
         };
-        let Some(text) = blob.text_content.as_deref() else { continue };
-        let Some(front) = parse_frontmatter(text) else { continue };
-        let Some(name_value) = front.value.get("name").and_then(|v| v.as_str()) else { continue };
+        let Some(text) = blob.text_content.as_deref() else {
+            continue;
+        };
+        let Some(front) = parse_frontmatter(text) else {
+            continue;
+        };
+        let Some(name_value) = front.value.get("name").and_then(|v| v.as_str()) else {
+            continue;
+        };
         let Some(description) = front.value.get("description").and_then(|v| v.as_str()) else {
             continue;
         };
@@ -62,10 +74,8 @@ pub async fn collect_skill_entries(
                 }
             }
         }
-        let mut frontmatter = rmcp::model::SkillFrontmatter::new(
-            name_value.to_string(),
-            description.to_string(),
-        );
+        let mut frontmatter =
+            rmcp::model::SkillFrontmatter::new(name_value.to_string(), description.to_string());
         for (key, value) in extra {
             frontmatter = frontmatter.with_field(key, value);
         }
@@ -78,25 +88,14 @@ pub async fn collect_skill_entries(
             .collect();
         file_paths.sort();
         for path in file_paths {
-            let Some(file) = files.get(path) else { continue };
+            let Some(file) = files.get(path) else {
+                continue;
+            };
             let relative = path.strip_prefix(&prefix).unwrap_or("SKILL.md");
             let uri = if relative == "SKILL.md" {
                 skill_uri(&project.slug, &name)
             } else {
-                format!(
-                    "skill://{}/{}/{}",
-                    project.slug,
-                    percent_encoding::utf8_percent_encode(&name, percent_encoding::NON_ALPHANUMERIC),
-                    relative
-                        .split('/')
-                        .map(|segment| percent_encoding::utf8_percent_encode(
-                            segment,
-                            percent_encoding::NON_ALPHANUMERIC
-                        )
-                        .to_string())
-                        .collect::<Vec<_>>()
-                        .join("/")
-                )
+                crate::paths::skill_file_uri(&project.slug, &name, relative)
             };
             resources.push(rmcp::model::SkillResource::new(
                 uri,
@@ -123,5 +122,3 @@ pub async fn collect_skill_entries(
     }
     Ok(skills)
 }
-
-

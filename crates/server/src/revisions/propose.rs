@@ -28,17 +28,28 @@ pub async fn propose_revision(
         ));
     }
     if changes.is_empty() {
-        return Err(AppError::bad_request("INVALID_ARGUMENT", "a proposal must change at least one file"));
+        return Err(AppError::bad_request(
+            "INVALID_ARGUMENT",
+            "a proposal must change at least one file",
+        ));
     }
     if changes.len() > 1000 {
-        return Err(AppError::bad_request("INVALID_ARGUMENT", "a proposal may touch at most 1000 files"));
+        return Err(AppError::bad_request(
+            "INVALID_ARGUMENT",
+            "a proposal may touch at most 1000 files",
+        ));
     }
 
     let active_revision_id = project.active_revision_id;
     let (base_map, base_id) = if let Some(base_id) = base_revision_id {
         let base = get_revision_for_project(&state.db, project.id, base_id)
             .await?
-            .ok_or_else(|| AppError::bad_request("INVALID_BASE", "base revision does not belong to this project"))?;
+            .ok_or_else(|| {
+                AppError::bad_request(
+                    "INVALID_BASE",
+                    "base revision does not belong to this project",
+                )
+            })?;
         (load_snapshot(&state.db, base.id).await?, Some(base.id))
     } else if let Some(active_id) = active_revision_id {
         (load_snapshot(&state.db, active_id).await?, Some(active_id))
@@ -85,8 +96,8 @@ pub async fn propose_revision(
                 incoming.insert(path, blob);
             }
             ProposedChange::Delete(raw) => {
-                let path = normalize_path(&raw)
-                    .map_err(|e| AppError::bad_request("INVALID_PATH", e))?;
+                let path =
+                    normalize_path(&raw).map_err(|e| AppError::bad_request("INVALID_PATH", e))?;
                 if deletions.contains(&path) || incoming.contains_key(&path) {
                     return Err(AppError::bad_request(
                         "INVALID_PATH",
@@ -98,8 +109,7 @@ pub async fn propose_revision(
             }
         }
     }
-    let _ = normalize_path_set(&paths)
-        .map_err(|e| AppError::bad_request("INVALID_PATH", e))?;
+    let _ = normalize_path_set(&paths).map_err(|e| AppError::bad_request("INVALID_PATH", e))?;
 
     let mut all_paths: Vec<String> = base_map
         .keys()
@@ -153,7 +163,8 @@ pub async fn propose_revision(
                         };
                         results.push((path, Some(merged), change_type.into()));
                     }
-                    Err((marked, mut detail)) => {
+                    Err(boxed) => {
+                        let (marked, mut detail) = *boxed;
                         detail.path = path.clone();
                         detail.base_sha256 = base_sha;
                         detail.active_sha256 = active_sha;
@@ -176,7 +187,9 @@ pub async fn propose_revision(
                         active_sha256: active_sha.clone(),
                         incoming_sha256: None,
                         merged_sha256: Some(active.sha256.clone()),
-                        preview: Some("active content changed while incoming deleted the file".into()),
+                        preview: Some(
+                            "active content changed while incoming deleted the file".into(),
+                        ),
                     };
                     conflicts.push(detail);
                     results.push((path, Some(active.clone()), "unchanged".into()));
@@ -244,7 +257,11 @@ pub async fn propose_revision(
     for (path, result, change_type) in &results {
         let active_tokens = tokens_of(active_map.get(path));
         let result_tokens = tokens_of(result.as_ref());
-        let delta = result_tokens - active_tokens;
+        let delta = if change_type == "deleted" {
+            -active_tokens
+        } else {
+            result_tokens - active_tokens
+        };
         if delta > 0 {
             token_added += i64::from(delta);
         } else {
@@ -256,14 +273,18 @@ pub async fn propose_revision(
         }
     }
 
-    let status = if conflicts.is_empty() { STATUS_PENDING } else { STATUS_CONFLICT };
+    let status = if conflicts.is_empty() {
+        STATUS_PENDING
+    } else {
+        STATUS_CONFLICT
+    };
     let conflict_summary = if conflicts.is_empty() {
         None
     } else {
-        Some(sqlx::types::Json(serde_json::to_value(
-            conflicts.iter().map(ConflictView::from).collect::<Vec<_>>(),
-        )
-        .unwrap_or(Value::Array(vec![]))))
+        Some(sqlx::types::Json(
+            serde_json::to_value(conflicts.iter().map(ConflictView::from).collect::<Vec<_>>())
+                .unwrap_or(Value::Array(vec![])),
+        ))
     };
 
     let mut tx = state.db.begin().await.map_err(AppError::from_db)?;
@@ -303,7 +324,11 @@ pub async fn propose_revision(
         } else {
             result_tokens - active_tokens
         };
-        let stored_tokens = if change_type == "deleted" { 0 } else { result_tokens };
+        let stored_tokens = if change_type == "deleted" {
+            0
+        } else {
+            result_tokens
+        };
         sqlx::query(
             r#"
             INSERT INTO revision_files
@@ -373,7 +398,7 @@ async fn merge_text(
     base: Option<&ContentBlob>,
     active: &ContentBlob,
     incoming: &ContentBlob,
-) -> Result<ContentBlob, (ContentBlob, ConflictDetail)> {
+) -> Result<ContentBlob, Box<(ContentBlob, ConflictDetail)>> {
     let conflict = |preview: String| ConflictDetail {
         path: String::new(),
         hunks: 1,
@@ -385,20 +410,24 @@ async fn merge_text(
         preview: Some(preview),
     };
     if !active.is_text || !incoming.is_text {
-        return Err((
+        return Err(Box::new((
             incoming.clone(),
             conflict("binary files cannot be merged; choose one side".into()),
-        ));
+        )));
     }
     let Some(active_text) = active.text_content.as_deref() else {
-        return Err((incoming.clone(), conflict("active text is unavailable".into())));
+        return Err(Box::new((
+            incoming.clone(),
+            conflict("active text is unavailable".into()),
+        )));
     };
     let Some(incoming_text) = incoming.text_content.as_deref() else {
-        return Err((incoming.clone(), conflict("incoming text is unavailable".into())));
+        return Err(Box::new((
+            incoming.clone(),
+            conflict("incoming text is unavailable".into()),
+        )));
     };
-    let base_text = base
-        .and_then(|b| b.text_content.as_deref())
-        .unwrap_or("");
+    let base_text = base.and_then(|b| b.text_content.as_deref()).unwrap_or("");
 
     match diffy::merge(base_text, active_text, incoming_text) {
         Ok(merged) => {
@@ -415,7 +444,7 @@ async fn merge_text(
             .await
             .map_err(|e| {
                 let detail = conflict(format!("merge ingest failed: {e}"));
-                (incoming.clone(), detail)
+                Box::new((incoming.clone(), detail))
             })?;
             Ok(blob)
         }
@@ -438,7 +467,11 @@ async fn merge_text(
             let detail = ConflictDetail {
                 path: String::new(),
                 hunks: conflict_lines.len().max(1),
-                lines: if conflict_lines.is_empty() { vec![1] } else { conflict_lines },
+                lines: if conflict_lines.is_empty() {
+                    vec![1]
+                } else {
+                    conflict_lines
+                },
                 base_sha256: sha_of(base),
                 active_sha256: Some(active.sha256.clone()),
                 incoming_sha256: Some(incoming.sha256.clone()),
@@ -453,8 +486,7 @@ async fn merge_text(
                         .collect(),
                 ),
             };
-            Err((merged_blob, detail))
+            Err(Box::new((merged_blob, detail)))
         }
     }
 }
-

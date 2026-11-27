@@ -59,7 +59,11 @@ fn build_web() -> Result<()> {
 fn check() -> Result<()> {
     let root = repo_root()?;
     run("cargo", &["fmt", "--check"], &root)?;
-    run("cargo", &["clippy", "--all-targets", "--", "-D", "warnings"], &root)?;
+    run(
+        "cargo",
+        &["clippy", "--all-targets", "--", "-D", "warnings"],
+        &root,
+    )?;
     run("cargo", &["test"], &root)?;
     Ok(())
 }

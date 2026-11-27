@@ -86,7 +86,11 @@ fn scan_headings(text: &str) -> Vec<Heading> {
             continue;
         }
         if let Some((level, title)) = heading_at(line) {
-            headings.push(Heading { level, title, line_index: index });
+            headings.push(Heading {
+                level,
+                title,
+                line_index: index,
+            });
         }
     }
     headings
@@ -96,7 +100,10 @@ pub fn parse_markdown(text: &str) -> ParsedMarkdown {
     let lines: Vec<&str> = text.split('\n').collect();
     let headings = scan_headings(text);
     let total_tokens = count_tokens(text);
-    let preamble_end = headings.first().map(|h| h.line_index).unwrap_or(lines.len());
+    let preamble_end = headings
+        .first()
+        .map(|h| h.line_index)
+        .unwrap_or(lines.len());
     let preamble = lines[..preamble_end].join("\n");
     let preamble_tokens = count_tokens(&preamble);
 
@@ -124,7 +131,10 @@ pub fn parse_markdown(text: &str) -> ParsedMarkdown {
     let outline = Outline {
         total_tokens,
         preamble_tokens,
-        sections: sections.iter().map(|section| section.meta.clone()).collect(),
+        sections: sections
+            .iter()
+            .map(|section| section.meta.clone())
+            .collect(),
     };
     ParsedMarkdown { outline, sections }
 }
@@ -161,8 +171,7 @@ pub fn render_outline(outline: &Outline) -> String {
 pub fn find_section<'a>(sections: &'a [ParsedSection], query: &str) -> Option<&'a ParsedSection> {
     let normalized = query.trim().trim_start_matches('#').trim();
     sections.iter().find(|section| {
-        section.meta.title.eq_ignore_ascii_case(normalized)
-            || section.meta.title == normalized
+        section.meta.title.eq_ignore_ascii_case(normalized) || section.meta.title == normalized
     })
 }
 
@@ -216,7 +225,9 @@ pub fn truncate_chars(value: &str, max_len: usize) -> String {
 /// Returns the body after a leading `---` YAML block, if one exists.
 pub fn strip_frontmatter(text: &str) -> Option<&str> {
     let rest = text.strip_prefix("---")?;
-    let rest = rest.strip_prefix('\n').or_else(|| rest.strip_prefix("\r\n"))?;
+    let rest = rest
+        .strip_prefix('\n')
+        .or_else(|| rest.strip_prefix("\r\n"))?;
     let mut offset = 0usize;
     for line in rest.split_inclusive('\n') {
         if line.trim_end_matches(['\r', '\n']) == "---" {
@@ -234,13 +245,18 @@ pub struct Frontmatter<'a> {
 
 pub fn parse_frontmatter(text: &str) -> Option<Frontmatter<'_>> {
     let rest = text.strip_prefix("---")?;
-    let rest = rest.strip_prefix('\n').or_else(|| rest.strip_prefix("\r\n"))?;
+    let rest = rest
+        .strip_prefix('\n')
+        .or_else(|| rest.strip_prefix("\r\n"))?;
     let mut offset = 0usize;
     for line in rest.split_inclusive('\n') {
         if line.trim_end_matches(['\r', '\n']) == "---" {
             let raw = &rest[..offset];
             let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(raw).ok()?;
-            return Some(Frontmatter { value, body: &rest[offset + line.len()..] });
+            return Some(Frontmatter {
+                value,
+                body: &rest[offset + line.len()..],
+            });
         }
         offset += line.len();
     }
@@ -300,7 +316,12 @@ Last body.
         assert!(!grandchild.content.contains("Child body."));
         assert!(parsed.outline.preamble_tokens > 0);
         assert_eq!(
-            parsed.outline.sections.iter().map(|s| s.tokens).sum::<usize>(),
+            parsed
+                .outline
+                .sections
+                .iter()
+                .map(|s| s.tokens)
+                .sum::<usize>(),
             parsed
                 .sections
                 .iter()

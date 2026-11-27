@@ -74,9 +74,9 @@ impl ProjectContext {
     }
 
     pub fn project(&self) -> Result<&Project, ToolError> {
-        self.project
-            .as_ref()
-            .ok_or_else(|| ToolError::new("PROJECT_CONTEXT_REQUIRED", "a project context is required"))
+        self.project.as_ref().ok_or_else(|| {
+            ToolError::new("PROJECT_CONTEXT_REQUIRED", "a project context is required")
+        })
     }
 
     pub fn project_app(&self) -> Result<&Project, AppError> {
@@ -123,9 +123,7 @@ fn parse_route(path: &str) -> Result<(RouteKind, Option<String>), AppError> {
         ["mcp"] => Ok((RouteKind::Read, None)),
         ["mcp", "projects", slug] => Ok((RouteKind::Read, Some((*slug).to_string()))),
         ["admin", "mcp"] => Ok((RouteKind::Admin, None)),
-        ["admin", "mcp", "projects", slug] => {
-            Ok((RouteKind::Admin, Some((*slug).to_string())))
-        }
+        ["admin", "mcp", "projects", slug] => Ok((RouteKind::Admin, Some((*slug).to_string()))),
         _ => Err(AppError::not_found("NOT_FOUND", "unknown MCP endpoint")),
     }
 }
@@ -163,25 +161,26 @@ pub async fn resolve_mcp_context(
 
     let header_slug = match headers.get(PROJECT_HEADER) {
         Some(value) => {
-            let value = value
-                .to_str()
-                .map_err(|_| AppError::bad_request("INVALID_PROJECT", "invalid X-MCP-Project header"))?;
+            let value = value.to_str().map_err(|_| {
+                AppError::bad_request("INVALID_PROJECT", "invalid X-MCP-Project header")
+            })?;
             let value = value.trim();
-            validate_slug(value)
-                .map_err(|e| AppError::bad_request("INVALID_PROJECT", format!("invalid X-MCP-Project: {e}")))?;
+            validate_slug(value).map_err(|e| {
+                AppError::bad_request("INVALID_PROJECT", format!("invalid X-MCP-Project: {e}"))
+            })?;
             Some(value.to_string())
         }
         None => None,
     };
 
     let (slug, source) = if let Some(slug) = path_slug {
-        if let Some(header) = &header_slug {
-            if header != &slug {
-                return Err(AppError::bad_request(
-                    "PROJECT_CONTEXT_CONFLICT",
-                    "X-MCP-Project disagrees with the project in the URL path",
-                ));
-            }
+        if let Some(header) = &header_slug
+            && header != &slug
+        {
+            return Err(AppError::bad_request(
+                "PROJECT_CONTEXT_CONFLICT",
+                "X-MCP-Project disagrees with the project in the URL path",
+            ));
         }
         (Some(slug), ProjectSource::Path)
     } else if let Some(header) = header_slug {
@@ -196,9 +195,9 @@ pub async fn resolve_mcp_context(
         resolve_authorized_project(&state.db, &key, &slug, route.is_admin()).await?
     } else if let Some(project_id) = key.default_project_id {
         // The key is bound to this project by database constraint.
-        let project = load_project_by_id(&state.db, project_id).await?.filter(|p| {
-            key.is_global || key.default_project_id == Some(p.id)
-        });
+        let project = load_project_by_id(&state.db, project_id)
+            .await?
+            .filter(|p| key.is_global || key.default_project_id == Some(p.id));
         match project {
             Some(project) => project,
             None if key.is_global => return Err(project_context_error(route, &key)),
@@ -210,10 +209,23 @@ pub async fn resolve_mcp_context(
             }
         }
     } else {
+        if route.is_admin() && key.is_global {
+            return Ok(ProjectContext {
+                key,
+                project: None,
+                route,
+                source: ProjectSource::None,
+            });
+        }
         return Err(project_context_error(route, &key));
     };
 
-    Ok(ProjectContext { key, project: Some(project), route, source })
+    Ok(ProjectContext {
+        key,
+        project: Some(project),
+        route,
+        source,
+    })
 }
 
 fn project_context_error(route: RouteKind, key: &AuthKey) -> AppError {
@@ -236,13 +248,17 @@ async fn resolve_authorized_project(
     slug: &str,
     _admin: bool,
 ) -> Result<Project, AppError> {
-    if !key.is_global && key.default_project_id.is_some() {
+    if !key.is_global {
         // Non-global keys are bound to one project. Resolve the requested slug
         // only to compare ids, and never reveal whether another project exists.
-        let bound = load_project_by_id(db, key.default_project_id.unwrap()).await?;
-        let allowed = bound
-            .as_ref()
-            .is_some_and(|project| project.slug == slug);
+        let Some(bound_id) = key.default_project_id else {
+            return Err(AppError::forbidden(
+                "PROJECT_ACCESS_DENIED",
+                "this API key is not authorized for the requested project",
+            ));
+        };
+        let bound = load_project_by_id(db, bound_id).await?;
+        let allowed = bound.as_ref().is_some_and(|project| project.slug == slug);
         if !allowed {
             return Err(AppError::forbidden(
                 "PROJECT_ACCESS_DENIED",
@@ -276,18 +292,9 @@ pub async fn resolve_tool_project(
     match (&ctx.project, project_slug) {
         (Some(project), None) => Ok(project.clone()),
         (Some(project), Some(slug)) if project.slug == slug => Ok(project.clone()),
-        (Some(_), Some(_)) => {
-            if ctx.route.is_admin() && ctx.key.is_global {
-                load_project_by_slug(&state.db, project_slug.unwrap())
-                    .await
-                    .map_err(ToolError::from)?
-                    .ok_or_else(|| ToolError::not_found("project not found"))
-            } else {
-                Err(ToolError::conflict(
-                    "project_slug conflicts with the resolved project context",
-                ))
-            }
-        }
+        (Some(_), Some(_)) => Err(ToolError::conflict(
+            "project_slug conflicts with the resolved project context; use the project path or X-MCP-Project to choose a project",
+        )),
         (None, Some(slug)) => {
             if ctx.route.is_admin() && ctx.key.is_global {
                 load_project_by_slug(&state.db, slug)
@@ -308,10 +315,7 @@ pub async fn resolve_tool_project(
     }
 }
 
-pub async fn list_projects_for_user(
-    db: &PgPool,
-    user: &WebUser,
-) -> Result<Vec<Project>, AppError> {
+pub async fn list_projects_for_user(db: &PgPool, user: &WebUser) -> Result<Vec<Project>, AppError> {
     let projects = if user.is_admin() {
         sqlx::query_as::<_, Project>(
             "SELECT id, slug, name, description, token_budget, active_revision_id FROM projects ORDER BY slug",
@@ -343,13 +347,12 @@ pub async fn user_can_access_project(
     if user.is_admin() {
         return Ok(load_project_by_id(db, project_id).await?.is_some());
     }
-    let exists: Option<i32> = sqlx::query_scalar(
-        "SELECT 1 FROM project_members WHERE project_id = $1 AND user_id = $2",
-    )
-    .bind(project_id)
-    .bind(user.id)
-    .fetch_optional(db)
-    .await?;
+    let exists: Option<i32> =
+        sqlx::query_scalar("SELECT 1 FROM project_members WHERE project_id = $1 AND user_id = $2")
+            .bind(project_id)
+            .bind(user.id)
+            .fetch_optional(db)
+            .await?;
     Ok(exists.is_some())
 }
 

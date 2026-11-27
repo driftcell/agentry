@@ -11,7 +11,7 @@ use crate::project::Project;
 
 use super::audit::insert_audit;
 use super::model::*;
-use super::store::{get_revision, load_revision_for_update, load_snapshot};
+use super::store::{get_revision, load_revision_for_update, load_snapshot, lock_project_active};
 pub async fn resolve_conflict(
     state: &AppState,
     project: &Project,
@@ -28,14 +28,22 @@ pub async fn resolve_conflict(
         ));
     }
     let mut tx = state.db.begin().await.map_err(AppError::from_db)?;
+    // Lock order is project then revision, matching activation.
+    let active_id = lock_project_active(&mut tx, project.id).await?;
     let revision = load_revision_for_update(&mut tx, revision_id).await?;
     if revision.project_id != project.id {
-        return Err(AppError::not_found("REVISION_NOT_FOUND", "revision not found"));
+        return Err(AppError::not_found(
+            "REVISION_NOT_FOUND",
+            "revision not found",
+        ));
     }
     if revision.status != STATUS_CONFLICT {
         return Err(AppError::conflict(
             "REVISION_STATE",
-            format!("revision is {}; only conflict revisions can be resolved", revision.status),
+            format!(
+                "revision is {}; only conflict revisions can be resolved",
+                revision.status
+            ),
         ));
     }
 
@@ -74,11 +82,12 @@ pub async fn resolve_conflict(
                         "resolution object key must belong to this project's staging area",
                     ));
                 }
-                let bytes = state
-                    .storage
-                    .get(key)
-                    .await
-                    .map_err(|e| AppError::bad_request("OSS_OBJECT_UNAVAILABLE", format!("cannot read resolution object: {e}")))?;
+                let bytes = state.storage.get(key).await.map_err(|e| {
+                    AppError::bad_request(
+                        "OSS_OBJECT_UNAVAILABLE",
+                        format!("cannot read resolution object: {e}"),
+                    )
+                })?;
                 bytes.to_vec()
             }
             _ => {
@@ -94,15 +103,9 @@ pub async fn resolve_conflict(
                 format!("{path} exceeds MAX_UPLOAD_BYTES"),
             ));
         }
-        let blob = ingest_bytes(
-            &state.db,
-            &state.storage,
-            &path,
-            None,
-            &bytes,
-        )
-        .await
-        .map_err(|e| AppError::internal(format!("ingest resolution {path}: {e}")))?;
+        let blob = ingest_bytes(&state.db, &state.storage, &path, None, &bytes)
+            .await
+            .map_err(|e| AppError::internal(format!("ingest resolution {path}: {e}")))?;
         resolved.insert(path, blob);
     }
     if resolved.len() != conflict_paths.len() {
@@ -113,11 +116,13 @@ pub async fn resolve_conflict(
             .collect::<Vec<_>>();
         return Err(AppError::bad_request(
             "UNRESOLVED_CONFLICTS",
-            format!("all conflicts must be resolved; missing: {}", missing.join(", ")),
+            format!(
+                "all conflicts must be resolved; missing: {}",
+                missing.join(", ")
+            ),
         ));
     }
 
-    let active_id = project.active_revision_id;
     let active_map = if let Some(active_id) = active_id {
         load_snapshot(&state.db, active_id).await?
     } else {

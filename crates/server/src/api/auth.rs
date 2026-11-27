@@ -7,8 +7,7 @@ use serde_json::{Value, json};
 
 use crate::AppState;
 use crate::auth::{
-    WebUser, clear_session_cookie, cookie_value, create_session, logout,
-    session_cookie,
+    WebUser, clear_session_cookie, cookie_value, create_session, logout, session_cookie,
 };
 use crate::error::Result;
 use crate::project::list_projects_for_user;
@@ -27,11 +26,7 @@ pub(super) async fn login(
     let token = create_session(&state.db, user.id, state.config.web_session_ttl).await?;
     let secure = state.config.public_url.starts_with("https://");
     let cookie = session_cookie(&token, state.config.web_session_ttl, secure);
-    Ok((
-        [(header::SET_COOKIE, cookie)],
-        Json(json!({"user": user})),
-    )
-        .into_response())
+    Ok(([(header::SET_COOKIE, cookie)], Json(json!({"user": user}))).into_response())
 }
 
 pub(super) async fn logout_handler(
@@ -59,4 +54,3 @@ pub(super) async fn me(user: WebUser, State(state): State<AppState>) -> Result<J
         "can_platform": user.can_platform(),
     })))
 }
-

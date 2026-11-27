@@ -6,9 +6,17 @@ use crate::auth::WebUser;
 use crate::error::{AppError, Result};
 
 pub(super) fn validate_scopes(scopes: &[String]) -> Result<()> {
-    let allowed = ["mcp:read", "admin:propose", "admin:activate", "admin:platform"];
+    let allowed = [
+        "mcp:read",
+        "admin:propose",
+        "admin:activate",
+        "admin:platform",
+    ];
     if scopes.is_empty() {
-        return Err(AppError::bad_request("INVALID_ARGUMENT", "scopes must not be empty"));
+        return Err(AppError::bad_request(
+            "INVALID_ARGUMENT",
+            "scopes must not be empty",
+        ));
     }
     for scope in scopes {
         if !allowed.contains(&scope.as_str()) {
@@ -23,10 +31,10 @@ pub(super) fn validate_scopes(scopes: &[String]) -> Result<()> {
 
 pub(super) fn map_unique_violation(message: &'static str) -> impl FnOnce(sqlx::Error) -> AppError {
     move |error| {
-        if let sqlx::Error::Database(db) = &error {
-            if db.code().as_deref() == Some("23505") {
-                return AppError::conflict("CONFLICT", message);
-            }
+        if let sqlx::Error::Database(db) = &error
+            && db.code().as_deref() == Some("23505")
+        {
+            return AppError::conflict("CONFLICT", message);
         }
         AppError::from_db(error)
     }

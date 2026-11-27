@@ -107,8 +107,13 @@ pub fn key_prefix_from_token(token: &str) -> Option<&str> {
 }
 
 pub fn bearer_token(headers: &axum::http::HeaderMap) -> Option<String> {
-    let value = headers.get(axum::http::header::AUTHORIZATION)?.to_str().ok()?;
-    let token = value.strip_prefix("Bearer ").or_else(|| value.strip_prefix("bearer "))?;
+    let value = headers
+        .get(axum::http::header::AUTHORIZATION)?
+        .to_str()
+        .ok()?;
+    let token = value
+        .strip_prefix("Bearer ")
+        .or_else(|| value.strip_prefix("bearer "))?;
     let token = token.trim();
     if token.is_empty() {
         return None;
@@ -143,10 +148,10 @@ pub async fn authenticate_api_key(db: &PgPool, token: &str) -> Result<AuthKey> {
     if row.revoked_at.is_some() {
         return Err(AppError::unauthorized("UNAUTHENTICATED", "invalid API key"));
     }
-    if let Some(expires_at) = row.expires_at {
-        if expires_at <= Utc::now() {
-            return Err(AppError::unauthorized("UNAUTHENTICATED", "invalid API key"));
-        }
+    if let Some(expires_at) = row.expires_at
+        && expires_at <= Utc::now()
+    {
+        return Err(AppError::unauthorized("UNAUTHENTICATED", "invalid API key"));
     }
     Ok(row)
 }
@@ -171,24 +176,40 @@ pub async fn issue_api_key(
     scopes: &[String],
     is_global: bool,
 ) -> Result<(Uuid, String)> {
-    let (plaintext, prefix, hash) = generate_api_key();
-    let id: Uuid = sqlx::query_scalar(
-        r#"
-        INSERT INTO api_keys (user_id, name, key_prefix, key_hash, default_project_id, is_global, scopes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id
-        "#,
-    )
-    .bind(user_id)
-    .bind(name)
-    .bind(prefix)
-    .bind(hash)
-    .bind(project_id)
-    .bind(is_global)
-    .bind(scopes)
-    .fetch_one(db)
-    .await?;
-    Ok((id, plaintext))
+    let mut last_error = None;
+    for _ in 0..3 {
+        let (plaintext, prefix, hash) = generate_api_key();
+        let result: Result<Uuid, sqlx::Error> = sqlx::query_scalar(
+            r#"
+            INSERT INTO api_keys (user_id, name, key_prefix, key_hash, default_project_id, is_global, scopes)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id
+            "#,
+        )
+        .bind(user_id)
+        .bind(name)
+        .bind(prefix)
+        .bind(hash)
+        .bind(project_id)
+        .bind(is_global)
+        .bind(scopes)
+        .fetch_one(db)
+        .await;
+        match result {
+            Ok(id) => return Ok((id, plaintext)),
+            Err(error) => {
+                let unique = matches!(&error, sqlx::Error::Database(db) if db.code().as_deref() == Some("23505"));
+                if !unique {
+                    return Err(AppError::from_db(error));
+                }
+                last_error = Some(error);
+            }
+        }
+    }
+    Err(AppError::internal(format!(
+        "could not allocate a unique API key prefix after 3 attempts: {}",
+        last_error.map(|e| e.to_string()).unwrap_or_default()
+    )))
 }
 
 pub async fn login(db: &PgPool, username: &str, password: &str) -> Result<WebUser> {
@@ -200,27 +221,43 @@ pub async fn login(db: &PgPool, username: &str, password: &str) -> Result<WebUse
     .await?;
     let Some((id, username, display_name, role, password_hash)) = row else {
         // Run a dummy verification to keep response time roughly constant.
-        let _ = verify_password(password, "$argon2id$v=19$m=19456,t=2,p=1$c2FsdHNhbHRzYWx0$0");
-        return Err(AppError::unauthorized("UNAUTHENTICATED", "invalid username or password"));
+        let _ = verify_password(
+            password,
+            "$argon2id$v=19$m=19456,t=2,p=1$c2FsdHNhbHRzYWx0$0",
+        );
+        return Err(AppError::unauthorized(
+            "UNAUTHENTICATED",
+            "invalid username or password",
+        ));
     };
     if !verify_password(password, &password_hash) {
-        return Err(AppError::unauthorized("UNAUTHENTICATED", "invalid username or password"));
+        return Err(AppError::unauthorized(
+            "UNAUTHENTICATED",
+            "invalid username or password",
+        ));
     }
-    Ok(WebUser { id, username, display_name, role })
+    Ok(WebUser {
+        id,
+        username,
+        display_name,
+        role,
+    })
 }
 
-pub async fn create_session(db: &PgPool, user_id: Uuid, ttl: std::time::Duration) -> Result<String> {
+pub async fn create_session(
+    db: &PgPool,
+    user_id: Uuid,
+    ttl: std::time::Duration,
+) -> Result<String> {
     let token = base64_url(&rand::random::<[u8; 32]>());
     let hash = sha256_hex(token.as_bytes());
     let expires_at = Utc::now() + chrono::Duration::seconds(ttl.as_secs() as i64);
-    sqlx::query(
-        "INSERT INTO web_sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
-    )
-    .bind(user_id)
-    .bind(hash)
-    .bind(expires_at)
-    .execute(db)
-    .await?;
+    sqlx::query("INSERT INTO web_sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)")
+        .bind(user_id)
+        .bind(hash)
+        .bind(expires_at)
+        .execute(db)
+        .await?;
     Ok(token)
 }
 
@@ -240,10 +277,10 @@ pub fn cookie_value(headers: &axum::http::HeaderMap) -> Option<String> {
     let header = headers.get(axum::http::header::COOKIE)?.to_str().ok()?;
     for part in header.split(';') {
         let part = part.trim();
-        if let Some(value) = part.strip_prefix(&format!("{SESSION_COOKIE}=")) {
-            if !value.is_empty() {
-                return Some(value.to_string());
-            }
+        if let Some(value) = part.strip_prefix(&format!("{SESSION_COOKIE}="))
+            && !value.is_empty()
+        {
+            return Some(value.to_string());
         }
     }
     None
@@ -261,7 +298,10 @@ pub async fn logout(db: &PgPool, token: &str) -> Result<()> {
 impl FromRequestParts<AppState> for WebUser {
     type Rejection = AppError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         let token = cookie_value(&parts.headers)
             .ok_or_else(|| AppError::unauthorized("UNAUTHENTICATED", "web session required"))?;
         let hash = sha256_hex(token.as_bytes());
@@ -277,7 +317,12 @@ impl FromRequestParts<AppState> for WebUser {
         .await
         .map_err(AppError::from_db)?
         .ok_or_else(|| AppError::unauthorized("UNAUTHENTICATED", "web session expired"))?;
-        Ok(WebUser { id: row.0, username: row.1, display_name: row.2, role: row.3 })
+        Ok(WebUser {
+            id: row.0,
+            username: row.1,
+            display_name: row.2,
+            role: row.3,
+        })
     }
 }
 
