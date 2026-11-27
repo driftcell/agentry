@@ -187,7 +187,8 @@ pub struct Resolution {
 /// Load the files present in a revision snapshot. Deleted rows are part of the
 /// diff history but are not part of the current tree.
 pub fn revision_is_stale(project: &Project, revision: &Revision) -> bool {
-    revision.merged_against_revision_id != project.active_revision_id
+    revision.status != STATUS_ACTIVE
+        && revision.merged_against_revision_id != project.active_revision_id
 }
 
 pub fn ensure_revision_project(revision: &Revision, project: &Project) -> Result<(), ToolError> {

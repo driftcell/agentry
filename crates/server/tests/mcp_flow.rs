@@ -215,6 +215,7 @@ async fn read_and_admin_mcp_share_the_same_revision_domain() {
     assert_eq!(status["status"], "active");
     assert_eq!(status["comment"], "integration approval");
     assert_eq!(status["reviewer"], "admin");
+    assert_eq!(status["stale"], false);
 
     // Two proposals from the same base both edit the same line: the second
     // must enter conflict, and must not activate until resolved and approved.

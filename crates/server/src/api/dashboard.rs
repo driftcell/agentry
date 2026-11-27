@@ -113,7 +113,7 @@ pub(super) async fn dashboard(
                COALESCE(u.username, CASE WHEN k.key_prefix IS NOT NULL THEN 'key:' || k.key_prefix END, 'system') AS author,
                rv.username AS reviewer,
                r.review_comment AS comment,
-               (r.merged_against_revision_id IS DISTINCT FROM p.active_revision_id) AS stale,
+               (r.status <> 'active' AND r.merged_against_revision_id IS DISTINCT FROM p.active_revision_id) AS stale,
                (SELECT count(*) FROM revision_conflicts c WHERE c.revision_id = r.id) AS conflict_count
         FROM revisions r
         JOIN projects p ON p.id = r.project_id

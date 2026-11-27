@@ -59,7 +59,8 @@ pub async fn review_status(
         token_added: revision.token_added,
         token_removed: revision.token_removed,
         total_tokens: revision.total_tokens,
-        stale: revision.merged_against_revision_id != project.active_revision_id,
+        stale: revision.status != STATUS_ACTIVE
+            && revision.merged_against_revision_id != project.active_revision_id,
         conflict_count: conflicts.len(),
         conflicts: conflicts.iter().map(ConflictView::from).collect(),
         created_at: revision.created_at,
