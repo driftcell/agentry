@@ -173,11 +173,11 @@ export function ConflictMerger({
     if (!canApprove || stale) return;
     const trimmedMessage = commitMessage.trim();
     if (!trimmedMessage) {
-      setSaveError("提交说明不能为空。");
+      setSaveError("请填写提交说明。");
       return;
     }
     if (!allConflictsReady) {
-      setSaveError("请先解决全部冲突文件（移除所有 <<<<<<<、=======、>>>>>>> 冲突标记）再保存。");
+      setSaveError("请先处理全部冲突文件（移除所有冲突标记）后再保存。");
       return;
     }
 
@@ -197,7 +197,7 @@ export function ConflictMerger({
       if (err instanceof ApiError) {
         setSaveError(`${err.code}: ${err.message}`);
       } else {
-        setSaveError("保存冲突解决结果失败。");
+        setSaveError("保存失败，请重试。");
       }
     } finally {
       setSaving(false);
@@ -205,50 +205,33 @@ export function ConflictMerger({
   };
 
   if (conflicts.length === 0) {
-    return <div className="p-4 text-xs text-ink-secondary">该修订当前没有待处理的冲突记录。</div>;
+    return <div className="p-4 text-xs text-ink-secondary">暂无待处理的冲突。</div>;
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 border border-amber-400 bg-amber-50/70 px-4 py-3 text-amber-950">
-        <div className="flex items-start gap-2.5">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-800" aria-hidden="true" />
-          <div className="space-y-0.5">
-            <p className="text-xs font-semibold">
-              三方合并冲突（已就绪 {resolvedCount} / {conflicts.length} 个文件）
-            </p>
-            <p className="text-xs text-amber-900">
-              可选择保留当前 (Active)、采纳传入 (Incoming)、保留双方
-              (Both)，或手动编辑合并结果。保存后修订将重新进入{" "}
-              <code className="font-mono font-semibold">pending_review</code> 状态等待人工审批。
-            </p>
-          </div>
-        </div>
+      <div className="flex items-center gap-2.5 border border-amber-400 bg-amber-50/70 px-4 py-2.5 text-xs text-amber-950">
+        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-800" aria-hidden="true" />
+        <span>
+          存在合并冲突（已处理 {resolvedCount} / {conflicts.length}{" "}
+          个文件）：选择保留方式或直接编辑下方内容，保存后将重新进入待审批。
+        </span>
       </div>
 
       {!canApprove ? (
-        <ForbiddenPanel
-          title="只读冲突预览"
-          description="仅 admin 或 superadmin 角色可以提交冲突解决结果。"
-        />
+        <ForbiddenPanel title="仅管理员可处理冲突" description="当前账号为只读预览。" />
       ) : stale ? (
         <div
           role="alert"
-          className="border border-red-300 bg-red-50/70 px-4 py-3 text-xs text-red-950 space-y-1"
+          className="border border-red-300 bg-red-50/70 px-4 py-2.5 text-xs text-red-950"
         >
-          <p className="font-semibold">冲突基线已过时（REVISION_STALE）</p>
-          <p>
-            该冲突创建后项目的 Active Revision
-            已发生变更，直接覆盖可能导致其他更改被回滚。请在上方拒绝此修订，并基于最新激活版本重新提案。
-          </p>
+          当前生效版本已更新，此冲突已过时；请先拒绝本修订，再基于最新版本重新提交。
         </div>
       ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 border border-hairline bg-surface divide-y lg:divide-y-0 lg:divide-x divide-hairline">
-        <aside aria-label="冲突文件列表" className="lg:col-span-3 p-3 space-y-2 bg-paper/50">
-          <p className="font-mono text-[11px] tracking-wider text-ink-muted">
-            冲突文件 ({conflicts.length})
-          </p>
+        <aside aria-label="冲突文件" className="lg:col-span-3 p-3 space-y-2 bg-paper/50">
+          <p className="text-xs font-medium text-ink-muted">冲突文件 ({conflicts.length})</p>
           <ul className="space-y-1">
             {conflicts.map((c) => {
               const isSelected = c.path === activePath;
@@ -274,7 +257,7 @@ export function ConflictMerger({
                             "h-3.5 w-3.5 shrink-0",
                             isSelected ? "text-emerald-300" : "text-emerald-700",
                           )}
-                          aria-label="已就绪"
+                          aria-label="已处理"
                         />
                       ) : (
                         <FileWarning
@@ -282,7 +265,7 @@ export function ConflictMerger({
                             "h-3.5 w-3.5 shrink-0",
                             isSelected ? "text-amber-300" : "text-amber-700",
                           )}
-                          aria-label="未解决"
+                          aria-label="待处理"
                         />
                       )}
                     </div>
@@ -303,10 +286,10 @@ export function ConflictMerger({
 
         <div className="lg:col-span-9 p-4 space-y-4 min-w-0">
           {isLoading ? (
-            <LoadingPanel label={`正在加载 ${activePath} 的三方对比上下文…`} />
+            <LoadingPanel label={`正在加载 ${activePath}…`} />
           ) : loadError ? (
             <ErrorPanel
-              title={`无法加载 ${activePath} 的冲突内容`}
+              title={`无法加载 ${activePath}`}
               error={loadError}
               onRetry={() => {
                 void baseQuery?.refetch();
@@ -323,7 +306,7 @@ export function ConflictMerger({
                     {resolvedStatusMap[activePath] ? (
                       <Badge variant="added">
                         <Check className="h-3 w-3" aria-hidden="true" />
-                        <span>已就绪</span>
+                        <span>已处理</span>
                       </Badge>
                     ) : (
                       <Badge variant="warning">
@@ -342,72 +325,61 @@ export function ConflictMerger({
                 {!isBinaryConflict && canApprove ? (
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Button variant="outline" size="xs" onClick={() => applyAllChoice("current")}>
-                      保留当前 (Active)
+                      使用当前
                     </Button>
                     <Button variant="outline" size="xs" onClick={() => applyAllChoice("incoming")}>
-                      采纳传入 (Incoming)
+                      使用传入
                     </Button>
                     <Button variant="outline" size="xs" onClick={() => applyAllChoice("both")}>
-                      保留双方 (Both)
+                      保留双方
                     </Button>
                   </div>
                 ) : null}
               </div>
 
               {isBinaryConflict ? (
-                <div className="border border-red-300 bg-red-50/70 p-4 text-xs text-red-950 space-y-2">
-                  <p className="font-semibold">检测到二进制文件冲突</p>
-                  <p>
-                    二进制文件无法以 UTF-8 文本形式在线合并。请通过{" "}
-                    <code className="font-mono">/admin/mcp</code> 的{" "}
-                    <code className="font-mono">resolve_conflict</code> 工具并指定 OSS
-                    暂存对象键来解决。
-                  </p>
+                <div className="border border-red-300 bg-red-50/70 p-4 text-xs text-red-950 space-y-1">
+                  <p className="font-semibold">二进制文件冲突</p>
+                  <p>非文本文件暂不支持在线合并，请通过命令行工具上传指定版本来解决。</p>
                 </div>
               ) : (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-3 border border-hairline divide-y md:divide-y-0 md:divide-x divide-hairline">
                     <div className="flex flex-col min-w-0">
                       <div className="flex items-center justify-between border-b border-hairline bg-subtle/60 px-3 py-1.5">
-                        <span className="font-mono text-[11px] font-semibold text-ink-secondary">
-                          Base（基线）
-                        </span>
+                        <span className="text-[11px] font-medium text-ink-secondary">基线</span>
                         <CopyableHash value={activeConflict?.base_sha256} />
                       </div>
                       <pre className="p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-words max-h-56 overflow-y-auto text-ink-secondary">
-                        {baseText || "（Base 中不存在）"}
+                        {baseText || "（无此文件）"}
                       </pre>
                     </div>
 
                     <div className="flex flex-col min-w-0">
                       <div className="flex items-center justify-between border-b border-hairline bg-subtle/60 px-3 py-1.5">
-                        <span className="font-mono text-[11px] font-semibold text-ink">
-                          Current（当前 Active）
-                        </span>
+                        <span className="text-[11px] font-medium text-ink">当前生效</span>
                         <CopyableHash value={activeConflict?.active_sha256} />
                       </div>
                       <pre className="p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-words max-h-56 overflow-y-auto text-ink">
-                        {activeText || "（当前 Active 已删除或不存在）"}
+                        {activeText || "（已删除或不存在）"}
                       </pre>
                     </div>
 
                     <div className="flex flex-col min-w-0">
                       <div className="flex items-center justify-between border-b border-hairline bg-subtle/60 px-3 py-1.5">
-                        <span className="font-mono text-[11px] font-semibold text-ink">
-                          Incoming（传入提案）
-                        </span>
+                        <span className="text-[11px] font-medium text-ink">传入变更</span>
                         <CopyableHash value={activeConflict?.incoming_sha256} />
                       </div>
                       <pre className="p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-words max-h-56 overflow-y-auto text-ink">
-                        {cleanIncomingText || "（传入提案已删除或不存在）"}
+                        {cleanIncomingText || "（已删除或不存在）"}
                       </pre>
                     </div>
                   </div>
 
                   {hunkSegments.length > 0 && canApprove ? (
                     <div className="space-y-2">
-                      <p className="font-mono text-[11px] tracking-wider text-ink-muted">
-                        逐块选择 ({hunkSegments.length})
+                      <p className="text-xs font-medium text-ink-muted">
+                        逐块处理 ({hunkSegments.length})
                       </p>
                       <div className="space-y-2">
                         {hunkSegments.map((hunk) => {
@@ -419,13 +391,13 @@ export function ConflictMerger({
                             >
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <span className="mono-num text-xs font-semibold text-ink">
-                                  冲突块 #{hunk.index}（第 {hunk.startLine} 行）
+                                  冲突 #{hunk.index}（第 {hunk.startLine} 行）
                                 </span>
                                 <div className="flex flex-wrap items-center gap-1.5">
                                   {(
                                     [
-                                      { id: "current", label: "保留当前" },
-                                      { id: "incoming", label: "采纳传入" },
+                                      { id: "current", label: "使用当前" },
+                                      { id: "incoming", label: "使用传入" },
                                       { id: "both", label: "保留双方" },
                                     ] as const
                                   ).map((btn) => (
@@ -459,23 +431,18 @@ export function ConflictMerger({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <label
                         htmlFor="conflict-editor"
-                        className="font-mono text-[11px] tracking-wider text-ink-muted"
+                        className="text-xs font-medium text-ink-muted"
                       >
-                        合并输出编辑器（{formatTokens(currentBuffer.split(/\r?\n/).length)} 行）
+                        合并结果（{formatTokens(currentBuffer.split(/\r?\n/).length)} 行）
                       </label>
                       {bufferHasMarkers ? (
-                        <span className="font-mono text-[11px] font-semibold text-amber-800">
-                          仍包含未解决的 &lt;&lt;&lt;&lt;&lt;&lt;&lt; / ======= /
-                          &gt;&gt;&gt;&gt;&gt;&gt;&gt; 标记
+                        <span className="text-xs font-medium text-amber-800">
+                          还有未移除的冲突标记
                         </span>
                       ) : activePath in drafts ? (
-                        <span className="font-mono text-[11px] text-emerald-800">
-                          已就绪，可提交保存
-                        </span>
+                        <span className="text-xs text-emerald-800">已处理，可以保存</span>
                       ) : (
-                        <span className="font-mono text-[11px] text-amber-800">
-                          请点击上方策略按钮或直接编辑后再保存
-                        </span>
+                        <span className="text-xs text-amber-800">请选择处理方式或直接编辑</span>
                       )}
                     </div>
                     <Textarea
@@ -495,9 +462,9 @@ export function ConflictMerger({
                 <div className="space-y-1.5">
                   <label
                     htmlFor="conflict-commit-message"
-                    className="block font-mono text-[11px] tracking-wider text-ink-muted"
+                    className="block text-xs font-medium text-ink-muted"
                   >
-                    提交说明 (Commit Message)
+                    提交说明
                   </label>
                   <Textarea
                     id="conflict-commit-message"
@@ -521,13 +488,13 @@ export function ConflictMerger({
                 {canApprove ? (
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className="mono-num text-xs text-ink-secondary">
-                      {resolvedCount} / {conflicts.length} 个冲突文件已处理干净
+                      已处理 {resolvedCount} / {conflicts.length} 个文件
                     </span>
                     <Button
                       onClick={() => void handleSaveResolution()}
                       disabled={!allConflictsReady || saving || stale}
                     >
-                      {saving ? "正在保存…" : "保存解决结果并回到待审批"}
+                      {saving ? "正在保存…" : "保存解决结果"}
                     </Button>
                   </div>
                 ) : null}

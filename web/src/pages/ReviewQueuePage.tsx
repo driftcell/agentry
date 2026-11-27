@@ -52,29 +52,23 @@ function ExpandableRevisionFiles({ revisionId }: { revisionId: string }) {
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger
         render={
-          <Button
-            variant="ghost"
-            size="xs"
-            className="group px-1.5 font-mono text-[11px] text-ink-secondary"
-          />
+          <Button variant="ghost" size="xs" className="group px-1.5 text-xs text-ink-secondary" />
         }
       >
         <ChevronRight
           className="h-3 w-3 transition-transform group-data-panel-open:rotate-90"
           aria-hidden="true"
         />
-        <span>{open ? "收起文件级 Token 差异" : "展开文件级 Token 差异"}</span>
+        <span>{open ? "收起变更文件" : "查看变更文件"}</span>
       </CollapsibleTrigger>
 
       <CollapsibleContent className="mt-2 border border-hairline bg-paper">
         {detailQuery.isLoading ? (
-          <div className="px-3 py-2 font-mono text-[11px] text-ink-muted">正在加载文件差异…</div>
+          <div className="px-3 py-2 text-xs text-ink-muted">加载中…</div>
         ) : detailQuery.error ? (
-          <div className="px-3 py-2 font-mono text-[11px] text-red-700">加载文件差异失败。</div>
+          <div className="px-3 py-2 text-xs text-red-700">加载失败</div>
         ) : changedFiles.length === 0 ? (
-          <div className="px-3 py-2 font-mono text-[11px] text-ink-muted">
-            相对当前激活版本无内容变更。
-          </div>
+          <div className="px-3 py-2 text-xs text-ink-muted">与当前生效版本无内容差异</div>
         ) : (
           <ul className="divide-y divide-hairline">
             {changedFiles.map((file) => (
@@ -178,7 +172,8 @@ export function ReviewQueuePage() {
       await invalidateAll(row.id);
     } catch (err) {
       setConfirmTarget(null);
-      const message = err instanceof ApiError ? `${err.code}: ${err.message}` : "操作执行失败。";
+      const message =
+        err instanceof ApiError ? `${err.code}: ${err.message}` : "操作失败，请重试。";
       setRowError((prev) => ({ ...prev, [row.id]: message }));
     } finally {
       setBusyId(null);
@@ -189,21 +184,13 @@ export function ReviewQueuePage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-hairline pb-3">
-        <div>
-          <h1 className="text-base font-semibold tracking-tight text-ink">人类审批队列</h1>
-          <p className="mt-0.5 text-xs text-ink-secondary">
-            汇总待审与冲突修订，支持 Approve、Approve &amp; Activate Now、Reject
-            及三方冲突解决；Agent 无法绕过人类审批。
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline pb-3">
+        <h1 className="text-base font-semibold tracking-tight text-ink">审批队列</h1>
 
         <div className="flex flex-wrap items-center gap-2">
-          <label htmlFor="review-project-filter" className="font-mono text-[11px] text-ink-muted">
-            项目筛选
-          </label>
           <Select
             id="review-project-filter"
+            aria-label="筛选项目"
             value={scopeSlug}
             onChange={(e) => setScopeSlug(e.target.value)}
             className="h-7 min-w-[160px] font-mono"
@@ -232,21 +219,21 @@ export function ReviewQueuePage() {
 
       {!canApprove ? (
         <ForbiddenPanel
-          title="当前账号为只读审批视图"
-          description="你的角色为 member。批准、拒绝或解决冲突需要 admin 或 superadmin 会话。"
+          title="仅管理员可审批"
+          description="当前账号为普通成员，可查看变更内容，但不能执行批准、拒绝或解决冲突。"
         />
       ) : null}
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as QueueFilter)}>
         <TabsList>
-          <TabsTrigger value="queue">待处理（待审与冲突）</TabsTrigger>
-          <TabsTrigger value="approved">已批准待激活</TabsTrigger>
-          <TabsTrigger value="history">已激活与历史</TabsTrigger>
+          <TabsTrigger value="queue">待处理</TabsTrigger>
+          <TabsTrigger value="approved">已批准</TabsTrigger>
+          <TabsTrigger value="history">历史记录</TabsTrigger>
         </TabsList>
       </Tabs>
 
       {revisionsQuery.isLoading ? (
-        <LoadingPanel label="正在加载审批队列…" />
+        <LoadingPanel label="加载中…" />
       ) : revisionsQuery.error ? (
         <ErrorPanel
           title="审批队列加载失败"
@@ -257,13 +244,10 @@ export function ReviewQueuePage() {
         <EmptyPanel
           title={
             tab === "queue"
-              ? "当前没有待审批或冲突修订"
+              ? "没有待处理的修订"
               : tab === "approved"
-                ? "没有等待 Agent 激活的已批准修订"
-                : "当前范围内暂无历史修订"
-          }
-          description={
-            tab === "queue" ? "通过 /admin/mcp 提交的待审提案或合并冲突会显示在这里。" : undefined
+                ? "没有等待激活的修订"
+                : "暂无历史记录"
           }
         />
       ) : (
@@ -283,13 +267,13 @@ export function ReviewQueuePage() {
                     <span className="font-mono text-xs font-semibold text-ink">
                       {row.project_slug}
                     </span>
-                    <CopyableHash value={row.id} prefix="rev:" />
+                    <CopyableHash value={row.id} />
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
                     <TokenDelta added={row.token_added} removed={row.token_removed} />
                     <span className="mono-num text-[11px] text-ink-muted">
-                      总计 {formatTokens(row.total_tokens)} tok · {row.file_count} 个文件
+                      {row.file_count} 个文件 · {formatTokens(row.total_tokens)} tok
                     </span>
                     <span
                       title={formatTimestamp(row.created_at)}
@@ -306,15 +290,15 @@ export function ReviewQueuePage() {
                   </p>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-secondary">
                     <span>
-                      提交者：<code className="font-mono text-ink">{row.author}</code>
+                      提交：<code className="font-mono text-ink">{row.author}</code>
                     </span>
                     {row.reviewer ? (
                       <span>
-                        审查员：<code className="font-mono text-ink">{row.reviewer}</code>
+                        审批：<code className="font-mono text-ink">{row.reviewer}</code>
                       </span>
                     ) : null}
                     {row.comment ? (
-                      <span className="text-ink-muted">审批意见：“{row.comment}”</span>
+                      <span className="text-ink-muted">备注：“{row.comment}”</span>
                     ) : null}
                   </div>
                 </div>
@@ -332,47 +316,45 @@ export function ReviewQueuePage() {
                       size="xs"
                       onClick={() => void revisionsQuery.refetch()}
                     >
-                      同步状态
+                      刷新
                     </Button>
                   </div>
                 ) : null}
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                      to="/revisions/$revisionId"
-                      params={{ revisionId: row.id }}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-xs font-medium no-underline transition-colors",
-                        row.status === "conflict"
-                          ? "border-amber-500 bg-amber-50 text-amber-950 hover:bg-amber-100"
-                          : "border-zinc-300 bg-white text-ink hover:bg-subtle",
-                      )}
-                    >
-                      {row.status === "conflict" ? (
-                        <>
-                          <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
-                          <span>处理三方冲突 ({shortUuid(row.id)})</span>
-                        </>
-                      ) : (
-                        <>
-                          <GitCompare className="h-3.5 w-3.5" aria-hidden="true" />
-                          <span>查看差异对比</span>
-                        </>
-                      )}
-                    </Link>
-                  </div>
+                  <Link
+                    to="/revisions/$revisionId"
+                    params={{ revisionId: row.id }}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-xs font-medium no-underline transition-colors",
+                      row.status === "conflict"
+                        ? "border-amber-500 bg-amber-50 text-amber-950 hover:bg-amber-100"
+                        : "border-zinc-300 bg-white text-ink hover:bg-subtle",
+                    )}
+                  >
+                    {row.status === "conflict" ? (
+                      <>
+                        <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>解决冲突</span>
+                      </>
+                    ) : (
+                      <>
+                        <GitCompare className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>查看差异</span>
+                      </>
+                    )}
+                  </Link>
 
                   {canApprove && (row.status === "pending_review" || row.status === "conflict") ? (
                     <div className="flex flex-wrap items-center gap-2 flex-1 justify-end min-w-[260px]">
                       <Input
                         type="text"
-                        aria-label={`${row.id} 审批意见`}
+                        aria-label={`${row.id} 审批备注`}
                         value={comments[row.id] ?? ""}
                         onChange={(e) =>
                           setComments((prev) => ({ ...prev, [row.id]: e.target.value }))
                         }
-                        placeholder="填写审批意见（可选）…"
+                        placeholder="审批备注（可选）"
                         disabled={isBusy}
                         className="h-7 max-w-xs"
                       />
@@ -394,7 +376,7 @@ export function ReviewQueuePage() {
                             onClick={() => setConfirmTarget({ kind: "activate", row })}
                           >
                             <Zap className="h-3 w-3" aria-hidden="true" />
-                            <span>批准并立即激活</span>
+                            <span>批准并激活</span>
                           </Button>
                         </>
                       ) : null}
@@ -422,9 +404,9 @@ export function ReviewQueuePage() {
         onOpenChange={(open) => {
           if (!open) setConfirmTarget(null);
         }}
-        title="确认批准并立即激活？"
-        description="该操作将原子完成人类批准并切换项目的 Active Revision 指针，所有 /mcp 客户端会立即读取此版本。"
-        confirmLabel="批准并立即激活"
+        title="批准并立即激活？"
+        description="确认后该版本将立即成为项目当前生效版本，所有接入端会立刻读取本次变更。"
+        confirmLabel="确认激活"
         pending={Boolean(confirmTarget && busyId === confirmTarget.row.id)}
         onConfirm={() => {
           if (confirmTarget) void executeAction("activate", confirmTarget.row);
@@ -435,7 +417,7 @@ export function ReviewQueuePage() {
               <div>
                 项目：<span className="font-semibold">{confirmTarget.row.project_slug}</span>
               </div>
-              <div>修订：{shortUuid(confirmTarget.row.id, 12)}</div>
+              <div>版本：{shortUuid(confirmTarget.row.id, 12)}</div>
               <TokenDelta
                 added={confirmTarget.row.token_added}
                 removed={confirmTarget.row.token_removed}
@@ -450,8 +432,8 @@ export function ReviewQueuePage() {
         onOpenChange={(open) => {
           if (!open) setConfirmTarget(null);
         }}
-        title="确认拒绝此修订？"
-        description="被拒绝的修订将保持不可激活状态。"
+        title="拒绝此修订？"
+        description="拒绝后该修订将归档，无法被激活。"
         confirmLabel="确认拒绝"
         variant="destructive"
         pending={Boolean(confirmTarget && busyId === confirmTarget.row.id)}
@@ -464,7 +446,7 @@ export function ReviewQueuePage() {
               <div>
                 项目：<span className="font-semibold">{confirmTarget.row.project_slug}</span>
               </div>
-              <div>审批意见：{(comments[confirmTarget.row.id] ?? "").trim() || "（无）"}</div>
+              <div>备注：{(comments[confirmTarget.row.id] ?? "").trim() || "（无）"}</div>
             </div>
           ) : null
         }

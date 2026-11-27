@@ -43,22 +43,22 @@ function comparePairSides(pair: ComparePair): {
       return {
         left: "active",
         right: "incoming",
-        leftLabel: "当前 Active",
-        rightLabel: "传入 Incoming",
+        leftLabel: "当前生效",
+        rightLabel: "本次变更",
       };
     case "base_incoming":
       return {
         left: "base",
         right: "incoming",
-        leftLabel: "提案 Base",
-        rightLabel: "传入 Incoming",
+        leftLabel: "原始基线",
+        rightLabel: "本次变更",
       };
     case "base_active":
       return {
         left: "base",
         right: "active",
-        leftLabel: "提案 Base",
-        rightLabel: "当前 Active",
+        leftLabel: "原始基线",
+        rightLabel: "当前生效",
       };
   }
 }
@@ -186,7 +186,7 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
       if (err instanceof ApiError) {
         setActionError(`${err.code}: ${err.message}`);
       } else {
-        setActionError("审批操作失败。");
+        setActionError("操作失败，请重试。");
       }
     } finally {
       setPendingAction(null);
@@ -194,7 +194,7 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
   };
 
   if (detailQuery.isLoading) {
-    return <LoadingPanel label="正在加载修订详情…" />;
+    return <LoadingPanel label="加载中…" />;
   }
 
   if (detailQuery.error) {
@@ -208,7 +208,7 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
   }
 
   if (!detail || !revision || !project) {
-    return <EmptyPanel title="修订不存在" description="未能找到指定的修订记录。" />;
+    return <EmptyPanel title="修订不存在" />;
   }
 
   const unchangedCount = detail.files.filter((f) => f.change_type === "unchanged").length;
@@ -225,7 +225,7 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
             <span>审批队列</span>
           </Link>
           <span className="font-mono text-xs font-semibold text-ink">{project.slug}</span>
-          <CopyableHash value={revision.id} prefix="rev:" />
+          <CopyableHash value={revision.id} />
           <StatusBadge
             status={revision.status}
             stale={detail.stale}
@@ -236,7 +236,7 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
         <div className="flex items-center gap-2">
           <TokenDelta added={revision.token_added} removed={revision.token_removed} />
           <span className="mono-num text-xs text-ink-muted">
-            总计 {formatTokens(revision.total_tokens)} tok（{revision.file_count} 个文件）
+            {revision.file_count} 个文件 · {formatTokens(revision.total_tokens)} tok
           </span>
           <Button
             variant="outline"
@@ -259,33 +259,27 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
       revision.status !== "rejected" ? (
         <div
           role="status"
-          className="flex items-start justify-between gap-3 border border-amber-400 bg-amber-50/70 px-4 py-2.5 text-xs text-amber-950"
+          className="flex items-center justify-between gap-3 border border-amber-400 bg-amber-50/70 px-4 py-2.5 text-xs text-amber-950"
         >
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-800" aria-hidden="true" />
-            <div>
-              <p className="font-semibold">该修订基于更早的 Active Revision 合并</p>
-              <p className="text-amber-900">
-                项目的当前激活版本在此提案创建后已发生变化，批准前请仔细比对{" "}
-                <code className="font-mono">当前 Active → 传入 Incoming</code> 的差异。
-              </p>
-            </div>
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-800" aria-hidden="true" />
+            <span>
+              当前生效版本已更新，此提案基于旧版本合并，批准前请核对「当前生效 → 本次变更」差异。
+            </span>
           </div>
           <Button variant="outline" size="xs" onClick={() => void detailQuery.refetch()}>
-            刷新状态
+            刷新
           </Button>
         </div>
       ) : null}
 
       <section
-        aria-label="修订元信息与审批操作"
+        aria-label="修订信息与审批"
         className="border border-hairline bg-surface p-4 space-y-3"
       >
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1.5 flex-1 min-w-[260px]">
-            <p className="font-mono text-[11px] tracking-wider text-ink-muted">
-              完整提交说明 (Commit Message)
-            </p>
+          <div className="space-y-1 flex-1 min-w-[260px]">
+            <p className="text-[11px] text-ink-muted">提交说明</p>
             <p className="whitespace-pre-wrap text-sm font-medium text-ink leading-relaxed">
               {revision.commit_message}
             </p>
@@ -293,11 +287,11 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
 
           <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-5 gap-y-2 text-xs border-t lg:border-t-0 pt-2 lg:pt-0 border-hairline">
             <div>
-              <dt className="font-mono text-[10px] text-ink-muted">提交者</dt>
+              <dt className="text-[11px] text-ink-muted">提交者</dt>
               <dd className="font-mono text-ink mt-0.5">{detail.author}</dd>
             </div>
             <div>
-              <dt className="font-mono text-[10px] text-ink-muted">Base 版本</dt>
+              <dt className="text-[11px] text-ink-muted">基于版本</dt>
               <dd className="mt-0.5">
                 {revision.base_revision_id ? (
                   <Link
@@ -313,13 +307,13 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-[10px] text-ink-muted">创建时间</dt>
+              <dt className="text-[11px] text-ink-muted">提交时间</dt>
               <dd className="mono-num text-[11px] text-ink-secondary mt-0.5">
                 {formatTimestamp(revision.created_at)}
               </dd>
             </div>
             <div>
-              <dt className="font-mono text-[10px] text-ink-muted">审查员</dt>
+              <dt className="text-[11px] text-ink-muted">审批人</dt>
               <dd className="font-mono text-ink mt-0.5">{detail.reviewer ?? "—"}</dd>
             </div>
           </dl>
@@ -327,7 +321,7 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
 
         {revision.review_comment ? (
           <div className="border-t border-hairline pt-2.5 text-xs">
-            <span className="font-mono text-[11px] text-ink-muted mr-2">审批意见：</span>
+            <span className="text-ink-muted mr-2">审批备注：</span>
             <span className="text-ink">{revision.review_comment}</span>
           </div>
         ) : null}
@@ -341,7 +335,7 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
               >
                 <span>{actionError}</span>
                 <Button variant="outline" size="xs" onClick={() => void detailQuery.refetch()}>
-                  同步最新状态
+                  刷新
                 </Button>
               </div>
             ) : null}
@@ -350,10 +344,10 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
               <div className="flex flex-wrap items-center gap-2">
                 <Input
                   type="text"
-                  aria-label="审批意见"
+                  aria-label="审批备注"
                   value={reviewComment}
                   onChange={(e) => setReviewComment(e.target.value)}
-                  placeholder="填写人类审批意见（可选）…"
+                  placeholder="审批备注（可选）"
                   disabled={pendingAction !== null}
                   className="flex-1 min-w-[220px]"
                 />
@@ -366,7 +360,7 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
                       onClick={() => void runReviewAction("approve")}
                     >
                       <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>{pendingAction === "approve" ? "正在批准…" : "批准 (Approve)"}</span>
+                      <span>{pendingAction === "approve" ? "处理中…" : "批准"}</span>
                     </Button>
                     <Button
                       size="sm"
@@ -374,7 +368,7 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
                       onClick={() => setConfirmKind("activate")}
                     >
                       <Zap className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span>批准并立即激活</span>
+                      <span>批准并激活</span>
                     </Button>
                   </>
                 ) : null}
@@ -385,13 +379,13 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
                   onClick={() => setConfirmKind("reject")}
                 >
                   <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>拒绝 (Reject)</span>
+                  <span>拒绝</span>
                 </Button>
               </div>
             ) : (
               <ForbiddenPanel
-                title="审批权限受限"
-                description="仅 admin 或 superadmin 角色可以批准、拒绝或解决修订冲突。"
+                title="仅管理员可审批"
+                description="当前账号为普通成员，无法批准、拒绝或处理冲突。"
               />
             )}
           </div>
@@ -404,29 +398,27 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
             {isConflict ? (
               <TabsTrigger value="conflict">
                 <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>三方冲突合并器 ({detail.conflicts.length})</span>
+                <span>冲突解决 ({detail.conflicts.length})</span>
               </TabsTrigger>
             ) : null}
             <TabsTrigger value="diff">
               <GitCompare className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>差异对比 ({detail.files.length} 个文件)</span>
+              <span>文件差异 ({detail.files.length})</span>
             </TabsTrigger>
           </TabsList>
 
           {activeTab === "diff" ? (
             <div className="flex flex-wrap items-center gap-2">
-              <label htmlFor="diff-compare-pair" className="font-mono text-[11px] text-ink-muted">
-                对比基准
-              </label>
               <Select
                 id="diff-compare-pair"
+                aria-label="对比版本"
                 value={comparePair}
                 onChange={(e) => setComparePair(e.target.value as ComparePair)}
-                className="h-7 font-mono text-xs"
+                className="h-7 text-xs"
               >
-                <option value="active_incoming">Active → Incoming</option>
-                <option value="base_incoming">Base → Incoming</option>
-                <option value="base_active">Base → Active</option>
+                <option value="active_incoming">当前生效 → 本次变更</option>
+                <option value="base_incoming">原始基线 → 本次变更</option>
+                <option value="base_active">原始基线 → 当前生效</option>
               </Select>
 
               <div className="inline-flex border border-hairline bg-surface rounded-sm p-0.5">
@@ -437,7 +429,7 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
                   aria-pressed={diffMode === "split"}
                 >
                   <Columns2 className="h-3 w-3" aria-hidden="true" />
-                  <span>分栏对比</span>
+                  <span>分栏</span>
                 </Button>
                 <Button
                   variant={diffMode === "unified" ? "default" : "ghost"}
@@ -446,7 +438,7 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
                   aria-pressed={diffMode === "unified"}
                 >
                   <Rows3 className="h-3 w-3" aria-hidden="true" />
-                  <span>单栏对比</span>
+                  <span>单栏</span>
                 </Button>
               </div>
             </div>
@@ -471,18 +463,18 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
 
         <TabsContent value="diff">
           <div className="grid grid-cols-1 lg:grid-cols-12 border border-hairline bg-surface divide-y lg:divide-y-0 lg:divide-x divide-hairline min-h-[480px]">
-            <aside aria-label="修订文件列表" className="lg:col-span-4 xl:col-span-3 flex flex-col">
+            <aside aria-label="文件列表" className="lg:col-span-4 xl:col-span-3 flex flex-col">
               <div className="flex items-center justify-between border-b border-hairline px-3 py-2 bg-subtle/40">
-                <span className="font-mono text-[11px] tracking-wider text-ink-muted">
-                  文件清单 ({visibleFiles.length})
+                <span className="text-xs font-medium text-ink-muted">
+                  文件 ({visibleFiles.length})
                 </span>
                 {unchangedCount > 0 ? (
                   <button
                     type="button"
                     onClick={() => setShowUnchanged((v) => !v)}
-                    className="font-mono text-[11px] text-ink-secondary hover:text-ink underline underline-offset-2 cursor-pointer"
+                    className="text-[11px] text-ink-secondary hover:text-ink underline underline-offset-2 cursor-pointer"
                   >
-                    {showUnchanged ? "隐藏未变文件" : `显示未变 (+${unchangedCount})`}
+                    {showUnchanged ? "仅看变更" : `显示全部 (+${unchangedCount})`}
                   </button>
                 ) : null}
               </div>
@@ -532,23 +524,17 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
               </ul>
             </aside>
 
-            <section aria-label="选中文件差异对比" className="lg:col-span-8 xl:col-span-9 min-w-0">
+            <section aria-label="文件差异详情" className="lg:col-span-8 xl:col-span-9 min-w-0">
               {!selectedPath ? (
                 <div className="p-6">
-                  <EmptyPanel
-                    title="该修订暂无文件"
-                    description="在左侧选择任意文件以按需加载差异视图。"
-                  />
+                  <EmptyPanel title="暂无文件" />
                 </div>
               ) : leftQuery?.isLoading || rightQuery?.isLoading ? (
-                <LoadingPanel
-                  label={`正在加载 ${selectedPath}（${pair.leftLabel} / ${pair.rightLabel}）…`}
-                  className="border-0"
-                />
+                <LoadingPanel label={`正在加载 ${selectedPath}…`} className="border-0" />
               ) : leftQuery?.error || rightQuery?.error ? (
                 <div className="p-4">
                   <ErrorPanel
-                    title={`加载 ${selectedPath} 差异失败`}
+                    title={`无法加载 ${selectedPath}`}
                     error={leftQuery?.error ?? rightQuery?.error}
                     onRetry={() => {
                       void leftQuery?.refetch();
@@ -576,9 +562,9 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
         onOpenChange={(open) => {
           if (!open) setConfirmKind(null);
         }}
-        title="确认批准并立即激活？"
-        description="该操作会在单个数据库事务内批准修订并原子切换项目的 Active Revision 指针；所有 /mcp 只读客户端将立即读取此版本。"
-        confirmLabel="批准并立即激活"
+        title="批准并立即激活？"
+        description="确认后该版本将立即成为项目当前生效版本，所有接入端会立刻读取本次变更。"
+        confirmLabel="确认激活"
         pending={pendingAction === "activate"}
         onConfirm={() => void runReviewAction("activate")}
         details={
@@ -586,7 +572,7 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
             <div>
               项目：<span className="font-semibold">{project.slug}</span>
             </div>
-            <div>修订：{shortUuid(revision.id, 12)}</div>
+            <div>版本：{shortUuid(revision.id, 12)}</div>
             <TokenDelta added={revision.token_added} removed={revision.token_removed} />
           </div>
         }
@@ -597,8 +583,8 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
         onOpenChange={(open) => {
           if (!open) setConfirmKind(null);
         }}
-        title="确认拒绝此修订？"
-        description="被拒绝的修订仍将保留在历史记录中用于审计，但无法被任何 Agent 激活。"
+        title="拒绝此修订？"
+        description="拒绝后该修订将归档，无法被激活。"
         confirmLabel="确认拒绝"
         variant="destructive"
         pending={pendingAction === "reject"}
@@ -608,7 +594,7 @@ export function RevisionDetailPage({ revisionId }: { revisionId: string }) {
             <div>
               项目：<span className="font-semibold">{project.slug}</span>
             </div>
-            <div>审批意见：{reviewComment.trim() || "（无）"}</div>
+            <div>备注：{reviewComment.trim() || "（无）"}</div>
           </div>
         }
       />

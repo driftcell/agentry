@@ -6,7 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import type { UserRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+function roleLabel(role: UserRole): string {
+  switch (role) {
+    case "superadmin":
+      return "超级管理员";
+    case "admin":
+      return "管理员";
+    case "member":
+      return "成员";
+  }
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, projects, selectedProjectSlug, setSelectedProjectSlug, logout } = useAuth();
@@ -30,7 +42,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     },
     {
       to: "/explorer" as const,
-      label: "工作区浏览器",
+      label: "工作区",
       icon: FolderTree,
       active: pathname.startsWith("/explorer") || pathname.includes("/workspace"),
     },
@@ -43,7 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     },
     {
       to: "/platform" as const,
-      label: "平台管理",
+      label: "管理",
       icon: Settings2,
       active: pathname.startsWith("/platform"),
     },
@@ -59,13 +71,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </a>
 
       <header className="sticky top-0 z-30 border-b border-hairline bg-surface">
-        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 sm:px-6 h-auto min-h-12 py-2 sm:py-0">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 sm:px-6 min-h-12 py-2 sm:py-0 sm:h-12">
           <div className="flex items-center gap-6">
             <Link to="/" className="flex items-baseline gap-2 no-underline">
               <span className="font-mono text-sm font-bold tracking-tight text-ink">AGENTRY</span>
-              <span className="hidden sm:inline font-mono text-[10px] tracking-wider text-ink-muted">
-                MCP 注册中心
-              </span>
             </Link>
 
             <nav aria-label="主导航" className="flex items-center gap-1">
@@ -103,34 +112,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-2.5">
             {projects.length > 0 ? (
-              <div className="flex items-center gap-1.5">
-                <label
-                  htmlFor="global-project-select"
-                  className="hidden md:inline font-mono text-[11px] text-ink-muted"
-                >
-                  当前项目
-                </label>
-                <Select
-                  id="global-project-select"
-                  aria-label="当前项目上下文"
-                  value={selectedProjectSlug}
-                  onChange={(e) => setSelectedProjectSlug(e.target.value)}
-                  className="h-7 min-w-[140px] font-mono text-xs"
-                >
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.slug}>
-                      {p.slug}
-                    </option>
-                  ))}
-                </Select>
-              </div>
+              <Select
+                id="global-project-select"
+                aria-label="切换当前项目"
+                value={selectedProjectSlug}
+                onChange={(e) => setSelectedProjectSlug(e.target.value)}
+                className="h-7 min-w-[140px] font-mono text-xs"
+              >
+                {projects.map((p) => (
+                  <option key={p.id} value={p.slug}>
+                    {p.slug}
+                  </option>
+                ))}
+              </Select>
             ) : null}
 
             {user ? (
               <div className="flex items-center gap-2 border-l border-hairline pl-2.5">
                 <span className="font-mono text-xs text-ink">{user.username}</span>
-                <Badge variant="muted" className="uppercase text-[10px]">
-                  {user.role}
+                <Badge variant="muted" className="text-[10px]">
+                  {roleLabel(user.role)}
                 </Badge>
                 <Button
                   variant="ghost"

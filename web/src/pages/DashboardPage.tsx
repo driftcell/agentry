@@ -35,23 +35,14 @@ export function DashboardPage() {
       : 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-hairline pb-3">
-        <div>
-          <h1 className="text-base font-semibold tracking-tight text-ink">
-            注册中心总览与调用动态
-          </h1>
-          <p className="mt-0.5 text-xs text-ink-secondary">
-            各项目 Active Token 预算水位、最近 Commit 审查动态以及近 30 天 MCP 调用统计。
-          </p>
-        </div>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline pb-3">
+        <h1 className="text-base font-semibold tracking-tight text-ink">概览</h1>
 
         <div className="flex items-center gap-2">
-          <label htmlFor="dashboard-scope" className="font-mono text-[11px] text-ink-muted">
-            统计范围
-          </label>
           <Select
             id="dashboard-scope"
+            aria-label="统计范围"
             value={scopeSlug}
             onChange={(e) => setScopeSlug(e.target.value)}
             className="h-7 min-w-[160px] font-mono"
@@ -80,7 +71,7 @@ export function DashboardPage() {
       </div>
 
       {query.isLoading ? (
-        <LoadingPanel label="正在加载注册中心指标…" />
+        <LoadingPanel label="加载中…" />
       ) : query.error ? (
         <ErrorPanel
           title="概览数据加载失败"
@@ -95,37 +86,27 @@ export function DashboardPage() {
           >
             <div className="px-4 py-3.5">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="font-mono text-[11px] tracking-wider text-ink-muted">
-                  托管项目数
-                </span>
+                <span className="text-xs text-ink-muted">项目数</span>
                 <span className="font-mono text-[11px] text-ink-muted">{data.scope ?? "全部"}</span>
               </div>
               <p className="mono-num mt-1.5 text-2xl font-semibold text-ink">
                 {formatTokens(data.metrics.projects)}
               </p>
-              <p className="mt-1 text-[11px] text-ink-secondary">独立隔离的 Active Revision 指针</p>
             </div>
 
             <div className="px-4 py-3.5">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="font-mono text-[11px] tracking-wider text-ink-muted">
-                  Active Skills 总数
-                </span>
+                <span className="text-xs text-ink-muted">生效 Skills</span>
                 <span className="font-mono text-[11px] text-ink-muted">SKILL.md</span>
               </div>
               <p className="mono-num mt-1.5 text-2xl font-semibold text-ink">
                 {formatTokens(data.metrics.active_skills)}
               </p>
-              <p className="mt-1 text-[11px] text-ink-secondary">
-                通过 <code className="text-[11px]">skills/list</code> 对外暴露
-              </p>
             </div>
 
             <div className="px-4 py-3.5">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="font-mono text-[11px] tracking-wider text-ink-muted">
-                  整库 Token 预算水位
-                </span>
+                <span className="text-xs text-ink-muted">Token 预算使用</span>
                 <span className="mono-num text-[11px] font-medium text-ink">{budgetPct}%</span>
               </div>
               <p className="mono-num mt-1.5 text-xl font-semibold text-ink">
@@ -159,44 +140,36 @@ export function DashboardPage() {
 
             <div className="px-4 py-3.5">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="font-mono text-[11px] tracking-wider text-ink-muted">
-                  待审批 Revisions
-                </span>
+                <span className="text-xs text-ink-muted">待审批</span>
                 <Link
                   to="/review"
-                  className="inline-flex items-center gap-0.5 font-mono text-[11px] text-ink underline underline-offset-2 hover:text-ink-secondary"
+                  className="inline-flex items-center gap-0.5 text-xs text-ink underline underline-offset-2 hover:text-ink-secondary"
                 >
-                  前往处理
+                  去处理
                   <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
                 </Link>
               </div>
               <p className="mono-num mt-1.5 text-2xl font-semibold text-ink">
                 {formatTokens(data.metrics.pending_reviews)}
               </p>
-              <p className="mt-1 text-[11px] text-ink-secondary">等待人工审批或三方冲突合并</p>
             </div>
           </section>
 
           <div className="grid grid-cols-1 xl:grid-cols-12 border border-hairline bg-surface divide-y xl:divide-y-0 xl:divide-x divide-hairline">
-            <section aria-label="最近 Commit 审查动态流" className="xl:col-span-7 flex flex-col">
+            <section aria-label="最近修订动态" className="xl:col-span-7 flex flex-col">
               <div className="flex items-center justify-between border-b border-hairline px-4 py-2.5 bg-subtle/60">
-                <h2 className="text-xs font-semibold tracking-wider text-ink font-mono">
-                  最近 Commit 审查动态
-                </h2>
+                <h2 className="text-xs font-semibold text-ink">最近修订</h2>
                 <Link
                   to="/review"
                   className="text-xs text-ink-secondary hover:text-ink underline underline-offset-2"
                 >
-                  查看全部
+                  全部
                 </Link>
               </div>
 
               {data.recent.length === 0 ? (
                 <div className="p-4">
-                  <EmptyPanel
-                    title="暂无修订记录"
-                    description="通过 /admin/mcp 提交的提案或初始化项目动态会显示在这里。"
-                  />
+                  <EmptyPanel title="暂无修订记录" />
                 </div>
               ) : (
                 <ul className="divide-y divide-hairline">
@@ -213,7 +186,7 @@ export function DashboardPage() {
                             {row.project_slug}
                           </span>
                           <code className="mono-num text-[11px] text-ink-muted">
-                            rev:{shortUuid(row.id)}
+                            {shortUuid(row.id)}
                           </code>
                         </div>
 
@@ -237,23 +210,21 @@ export function DashboardPage() {
                           {firstLine(row.commit_message)}
                         </Link>
                         <span className="mono-num shrink-0 text-[11px] text-ink-muted">
-                          总计 {formatTokens(row.total_tokens)} tok
+                          {formatTokens(row.total_tokens)} tok
                         </span>
                       </div>
 
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-secondary">
                         <span>
-                          提交者：<code className="text-ink">{row.author}</code>
+                          提交：<code className="text-ink">{row.author}</code>
                         </span>
                         {row.reviewer ? (
                           <span>
-                            审查员：<code className="text-ink">{row.reviewer}</code>
+                            审批：<code className="text-ink">{row.reviewer}</code>
                           </span>
                         ) : null}
                         {row.comment ? (
-                          <span className="text-ink-muted italic truncate max-w-md">
-                            “{row.comment}”
-                          </span>
+                          <span className="text-ink-muted truncate max-w-md">“{row.comment}”</span>
                         ) : null}
                       </div>
                     </li>
@@ -262,27 +233,23 @@ export function DashboardPage() {
               )}
             </section>
 
-            <section aria-label="API Key 调用统计" className="xl:col-span-5 flex flex-col">
+            <section aria-label="调用统计" className="xl:col-span-5 flex flex-col">
               <div className="border-b border-hairline px-4 py-2.5 bg-subtle/60">
-                <h2 className="text-xs font-semibold tracking-wider text-ink font-mono">
-                  API Key 与端点调用统计（近 30 天）
-                </h2>
+                <h2 className="text-xs font-semibold text-ink">调用统计（近 30 天）</h2>
               </div>
 
               <div className="divide-y divide-hairline">
                 <div className="p-4">
-                  <h3 className="font-mono text-[11px] tracking-wider text-ink-muted mb-2">
-                    入口分布
-                  </h3>
+                  <h3 className="text-xs font-medium text-ink-muted mb-2">入口</h3>
                   {data.stats.endpoints.length === 0 ? (
-                    <p className="text-xs text-ink-muted">暂无 MCP 调用记录。</p>
+                    <p className="text-xs text-ink-muted">暂无调用记录</p>
                   ) : (
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="border-b border-hairline text-left font-mono text-[11px] text-ink-muted">
-                          <th className="py-1 font-medium">入口</th>
-                          <th className="py-1 text-right font-medium">调用</th>
-                          <th className="py-1 text-right font-medium">错误</th>
+                        <tr className="border-b border-hairline text-left text-[11px] text-ink-muted">
+                          <th className="py-1 font-medium">路径</th>
+                          <th className="py-1 text-right font-medium">次数</th>
+                          <th className="py-1 text-right font-medium">失败</th>
                           <th className="py-1 text-right font-medium">平均耗时</th>
                         </tr>
                       </thead>
@@ -310,19 +277,17 @@ export function DashboardPage() {
                 </div>
 
                 <div className="p-4">
-                  <h3 className="font-mono text-[11px] tracking-wider text-ink-muted mb-2">
-                    API Key 活跃度
-                  </h3>
+                  <h3 className="text-xs font-medium text-ink-muted mb-2">API Key</h3>
                   {data.stats.keys.length === 0 ? (
-                    <p className="text-xs text-ink-muted">暂无 API Key 调用记录。</p>
+                    <p className="text-xs text-ink-muted">暂无密钥调用</p>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead>
-                          <tr className="border-b border-hairline text-left font-mono text-[11px] text-ink-muted">
+                          <tr className="border-b border-hairline text-left text-[11px] text-ink-muted">
                             <th className="py-1 font-medium">密钥</th>
-                            <th className="py-1 text-right font-medium">调用</th>
-                            <th className="py-1 text-right font-medium">错误</th>
+                            <th className="py-1 text-right font-medium">次数</th>
+                            <th className="py-1 text-right font-medium">失败</th>
                             <th className="py-1 text-right font-medium">最近调用</th>
                           </tr>
                         </thead>
@@ -330,9 +295,7 @@ export function DashboardPage() {
                           {data.stats.keys.map((k, idx) => (
                             <tr key={k.api_key_id ?? `anon-${idx}`}>
                               <td className="py-1.5">
-                                <div className="font-medium text-ink">
-                                  {k.key_name ?? "未认证请求"}
-                                </div>
+                                <div className="font-medium text-ink">{k.key_name ?? "未认证"}</div>
                                 {k.key_prefix ? (
                                   <div className="font-mono text-[11px] text-ink-muted">
                                     mreg_{k.key_prefix}…
@@ -362,17 +325,15 @@ export function DashboardPage() {
                 </div>
 
                 <div className="p-4">
-                  <h3 className="font-mono text-[11px] tracking-wider text-ink-muted mb-2">
-                    高频方法 / Tool
-                  </h3>
+                  <h3 className="text-xs font-medium text-ink-muted mb-2">热门方法</h3>
                   {data.stats.methods.length === 0 ? (
-                    <p className="text-xs text-ink-muted">暂无方法调用记录。</p>
+                    <p className="text-xs text-ink-muted">暂无方法调用</p>
                   ) : (
                     <table className="w-full text-xs">
                       <thead>
-                        <tr className="border-b border-hairline text-left font-mono text-[11px] text-ink-muted">
-                          <th className="py-1 font-medium">方法 / Tool</th>
-                          <th className="py-1 text-right font-medium">调用</th>
+                        <tr className="border-b border-hairline text-left text-[11px] text-ink-muted">
+                          <th className="py-1 font-medium">方法</th>
+                          <th className="py-1 text-right font-medium">次数</th>
                           <th className="py-1 text-right font-medium">平均耗时</th>
                         </tr>
                       </thead>

@@ -24,7 +24,7 @@ const KIND_FILTERS: ReadonlyArray<{ id: FileKindFilter; label: string }> = [
   { id: "claude", label: "CLAUDE" },
   { id: "agents", label: "AGENTS" },
   { id: "skills", label: "Skills" },
-  { id: "subagents", label: "Sub-agents" },
+  { id: "subagents", label: "子智能体" },
   { id: "root", label: "根目录" },
 ];
 
@@ -130,12 +130,7 @@ export function ExplorerPage({
   };
 
   if (!activeSlug) {
-    return (
-      <EmptyPanel
-        title="暂无可访问的项目"
-        description="请联系管理员创建项目或为你授予项目访问权限。"
-      />
-    );
+    return <EmptyPanel title="暂无可用项目" description="请联系管理员创建项目或分配访问权限。" />;
   }
 
   const activeRevision = workspaceQuery.data?.detail.active_revision;
@@ -144,20 +139,19 @@ export function ExplorerPage({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline pb-3">
-        <div>
-          <h1 className="text-base font-semibold tracking-tight text-ink">工作区浏览器</h1>
-          <p className="mt-0.5 text-xs text-ink-secondary">
-            当前 Active Revision 文件树，展示入库预计算的{" "}
-            <code className="text-[11px]">o200k_base</code> Token 徽章与按需加载正文。
-          </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-base font-semibold tracking-tight text-ink">工作区</h1>
+          {activeRevision ? (
+            <span className="text-xs text-ink-secondary truncate max-w-xl">
+              {firstLine(activeRevision.commit_message)}
+            </span>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <label htmlFor="explorer-project" className="font-mono text-[11px] text-ink-muted">
-            项目
-          </label>
           <Select
             id="explorer-project"
+            aria-label="选择项目"
             value={activeSlug}
             onChange={(e) => {
               const nextSlug = e.target.value;
@@ -180,11 +174,13 @@ export function ExplorerPage({
               to="/revisions/$revisionId"
               params={{ revisionId: activeRevision.id }}
               className="inline-flex items-center gap-1.5 rounded-sm border border-zinc-300 bg-white px-2.5 py-1 text-xs font-mono text-ink hover:bg-subtle no-underline"
+              title="查看当前生效版本详情"
             >
-              <span>rev:{shortUuid(activeRevision.id)}</span>
+              <span>当前版本 {shortUuid(activeRevision.id)}</span>
               <span className="text-ink-muted">·</span>
               <span className="mono-num">
-                {formatTokens(workspaceQuery.data?.workspace.tokens)} tok
+                {formatTokens(workspaceQuery.data?.workspace.tokens)} /{" "}
+                {formatTokens(project?.token_budget)} tok
               </span>
               <ExternalLink className="h-3 w-3 text-ink-muted" aria-hidden="true" />
             </Link>
@@ -193,7 +189,7 @@ export function ExplorerPage({
       </div>
 
       {workspaceQuery.isLoading ? (
-        <LoadingPanel label={`正在加载 ${activeSlug} 工作区…`} />
+        <LoadingPanel label="正在加载文件…" />
       ) : workspaceQuery.error ? (
         <ErrorPanel
           title="工作区加载失败"
@@ -202,34 +198,16 @@ export function ExplorerPage({
         />
       ) : workspaceQuery.data ? (
         <>
-          {activeRevision ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 border border-hairline bg-surface px-3 py-2 text-xs">
-              <div className="flex items-center gap-2 min-w-0">
-                <Badge variant="solid">生效中</Badge>
-                <span className="font-mono text-ink">{project?.slug}</span>
-                <span className="text-ink-muted">·</span>
-                <span className="truncate text-ink-secondary">
-                  {firstLine(activeRevision.commit_message)}
-                </span>
-              </div>
-              <span className="mono-num text-[11px] text-ink-muted">
-                {files.length} 个文件 · {formatTokens(workspaceQuery.data.workspace.tokens)} /{" "}
-                {formatTokens(project?.token_budget)} tokens
-              </span>
-            </div>
-          ) : (
+          {!activeRevision ? (
             <EmptyPanel
-              title="暂无 Active Revision"
-              description="该项目当前尚无已激活版本，请在审批队列中批准并激活一个修订提案。"
+              title="该项目尚未激活任何版本"
+              description="前往审批队列批准并激活修订后，文件将显示在这里。"
             />
-          )}
+          ) : null}
 
           {files.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-12 border border-hairline bg-surface divide-y lg:divide-y-0 lg:divide-x divide-hairline min-h-[560px]">
-              <aside
-                aria-label="工作区文件树"
-                className="lg:col-span-4 xl:col-span-3 flex flex-col"
-              >
+              <aside aria-label="文件树" className="lg:col-span-4 xl:col-span-3 flex flex-col">
                 <div className="border-b border-hairline p-2.5 space-y-2 bg-subtle/40">
                   <div className="relative">
                     <Search
@@ -238,15 +216,15 @@ export function ExplorerPage({
                     />
                     <Input
                       type="search"
-                      aria-label="按路径或描述筛选文件"
+                      aria-label="搜索文件"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="筛选路径或描述…"
+                      placeholder="搜索文件…"
                       className="pl-7 h-7 font-mono text-xs"
                     />
                   </div>
 
-                  <div className="flex flex-wrap gap-1" role="group" aria-label="文件类型筛选">
+                  <div className="flex flex-wrap gap-1" role="group" aria-label="文件分类">
                     {KIND_FILTERS.map((f) => (
                       <button
                         key={f.id}
@@ -265,22 +243,22 @@ export function ExplorerPage({
                     ))}
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-ink-muted font-mono">
-                    <span>已索引 {files.length} 个文件</span>
+                  <div className="flex items-center justify-between text-[11px] text-ink-muted">
+                    <span className="mono-num">共 {files.length} 个文件</span>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={expandAll}
                         className="hover:text-ink underline underline-offset-2 cursor-pointer"
                       >
-                        全部展开
+                        展开
                       </button>
                       <button
                         type="button"
                         onClick={collapseAll}
                         className="hover:text-ink underline underline-offset-2 cursor-pointer"
                       >
-                        全部折叠
+                        折叠
                       </button>
                     </div>
                   </div>
@@ -288,9 +266,7 @@ export function ExplorerPage({
 
                 <div className="p-2 overflow-y-auto max-h-[680px]">
                   {treeNodes.length === 0 ? (
-                    <p className="px-2 py-4 text-xs text-ink-muted font-mono">
-                      没有匹配当前过滤条件的文件。
-                    </p>
+                    <p className="px-2 py-4 text-xs text-ink-muted">没有找到匹配的文件。</p>
                   ) : (
                     <WorkspaceFileTree
                       nodes={treeNodes}
@@ -304,22 +280,19 @@ export function ExplorerPage({
               </aside>
 
               <section
-                aria-label="文件内容查看器"
+                aria-label="文件内容"
                 className="lg:col-span-8 xl:col-span-9 flex flex-col min-w-0"
               >
                 {!selectedPath ? (
                   <div className="p-6">
-                    <EmptyPanel
-                      title="请选择文件"
-                      description="在左侧文件树中点击任意文件以查看内容、章节大纲或签名下载链接。"
-                    />
+                    <EmptyPanel title="请选择左侧文件查看内容" />
                   </div>
                 ) : fileQuery.isLoading ? (
-                  <LoadingPanel label={`正在加载 ${selectedPath}…`} className="border-0" />
+                  <LoadingPanel label={`正在打开 ${selectedPath}…`} className="border-0" />
                 ) : fileQuery.error ? (
                   <div className="p-4">
                     <ErrorPanel
-                      title={`加载 ${selectedPath} 失败`}
+                      title={`无法打开 ${selectedPath}`}
                       error={fileQuery.error}
                       onRetry={() => void fileQuery.refetch()}
                     />
@@ -358,7 +331,7 @@ export function ExplorerPage({
                             ) : (
                               <>
                                 <Copy className="h-3 w-3" aria-hidden="true" />
-                                <span>复制正文</span>
+                                <span>复制</span>
                               </>
                             )}
                           </Button>
@@ -370,12 +343,12 @@ export function ExplorerPage({
                       <div className="flex flex-col md:flex-row flex-1 min-h-0">
                         {outline.length > 0 ? (
                           <nav
-                            aria-label="文档大纲"
+                            aria-label="文档目录"
                             className="md:w-56 shrink-0 border-b md:border-b-0 md:border-r border-hairline p-3 bg-paper/60"
                           >
-                            <div className="flex items-center gap-1.5 font-mono text-[11px] tracking-wider text-ink-muted mb-2">
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-ink-muted mb-2">
                               <ListTree className="h-3.5 w-3.5" aria-hidden="true" />
-                              <span>章节大纲 (H1–H3)</span>
+                              <span>目录</span>
                             </div>
                             <ul className="space-y-1">
                               {outline.map((heading) => (
@@ -393,7 +366,7 @@ export function ExplorerPage({
                                   >
                                     <span className="truncate">{heading.title}</span>
                                     <span className="mono-num text-[10px] text-ink-muted shrink-0">
-                                      L{heading.line}
+                                      {heading.line}
                                     </span>
                                   </button>
                                 </li>
@@ -430,16 +403,16 @@ export function ExplorerPage({
 
                           {hiddenLineCount > 0 ? (
                             <div className="border-t border-hairline bg-subtle px-4 py-2.5 flex items-center justify-between text-xs">
-                              <span className="font-mono text-ink-secondary">
-                                当前仅渲染前 {formatTokens(INITIAL_LINE_LIMIT)} 行（共{" "}
-                                {formatTokens(lines.length)} 行）。
+                              <span className="text-ink-secondary">
+                                已显示前 {formatTokens(INITIAL_LINE_LIMIT)} 行（共{" "}
+                                {formatTokens(lines.length)} 行）
                               </span>
                               <Button
                                 variant="outline"
                                 size="xs"
                                 onClick={() => setShowAllLines(true)}
                               >
-                                展开剩余 {formatTokens(hiddenLineCount)} 行
+                                显示剩余 {formatTokens(hiddenLineCount)} 行
                               </Button>
                             </div>
                           ) : null}
@@ -447,31 +420,24 @@ export function ExplorerPage({
                       </div>
                     ) : (
                       <div className="p-6 space-y-4">
-                        <div className="border border-hairline bg-paper p-4 space-y-2">
-                          <p className="text-xs font-semibold text-ink">
-                            二进制附件（对象存储签名交付）
-                          </p>
-                          <p className="text-xs text-ink-secondary">
-                            非文本附件存储在外部 S3 兼容对象存储中，通过最小权限短时效 Presigned URL
-                            交付。
-                          </p>
-                          <dl className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 font-mono text-xs">
-                            <div>
-                              <dt className="text-[10px] text-ink-muted">媒体类型</dt>
-                              <dd className="text-ink">{fileData.media_type}</dd>
-                            </div>
-                            <div>
-                              <dt className="text-[10px] text-ink-muted">文件大小</dt>
-                              <dd className="mono-num text-ink">{formatBytes(fileData.size)}</dd>
-                            </div>
-                            <div>
-                              <dt className="text-[10px] text-ink-muted">SHA-256</dt>
-                              <dd>
-                                <CopyableHash value={fileData.sha256} length={16} />
-                              </dd>
-                            </div>
-                          </dl>
-                        </div>
+                        <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 border border-hairline bg-paper p-4 text-xs">
+                          <div>
+                            <dt className="text-[11px] text-ink-muted">文件类型</dt>
+                            <dd className="mt-0.5 font-mono text-ink">{fileData.media_type}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-[11px] text-ink-muted">文件大小</dt>
+                            <dd className="mt-0.5 mono-num text-ink">
+                              {formatBytes(fileData.size)}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="text-[11px] text-ink-muted">SHA-256</dt>
+                            <dd className="mt-0.5">
+                              <CopyableHash value={fileData.sha256} length={16} />
+                            </dd>
+                          </div>
+                        </dl>
 
                         {fileData.url &&
                         fileData.media_type.startsWith("image/") &&
@@ -479,7 +445,7 @@ export function ExplorerPage({
                           <div className="border border-hairline bg-white p-4 inline-block">
                             <img
                               src={fileData.url}
-                              alt={`${fileData.path} 图片预览`}
+                              alt={`${fileData.path} 预览`}
                               className="max-h-80 max-w-full object-contain"
                               onError={() => setImageLoadFailed(true)}
                             />
@@ -495,10 +461,10 @@ export function ExplorerPage({
                               className="inline-flex items-center gap-1.5 rounded-sm border border-zinc-950 bg-zinc-950 px-3 py-1.5 text-xs font-medium text-zinc-50 hover:bg-zinc-800 no-underline"
                             >
                               <Download className="h-3.5 w-3.5" aria-hidden="true" />
-                              <span>通过签名链接下载</span>
+                              <span>下载文件</span>
                             </a>
                             <p className="mt-1.5 text-[11px] text-ink-muted">
-                              该 Presigned URL 仅在短时间内有效；持有链接者可在有效期内访问此对象。
+                              下载链接短期有效，过期后请刷新页面重新获取。
                             </p>
                           </div>
                         ) : null}

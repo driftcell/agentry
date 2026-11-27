@@ -20,6 +20,10 @@
     color-scheme: light;
   }
 
+  html {
+    scrollbar-gutter: stable;
+  }
+
   html,
   body {
     background-color: var(--color-paper);

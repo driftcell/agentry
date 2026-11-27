@@ -28,7 +28,7 @@ export function LoginPage({ onSuccess }: { onSuccess?: () => void }) {
       if (err instanceof ApiError) {
         setErrorMessage(err.message);
       } else {
-        setErrorMessage("无法完成登录，请确认服务端运行正常后重试。");
+        setErrorMessage("登录失败，请稍后重试。");
       }
     } finally {
       setSubmitting(false);
@@ -36,25 +36,15 @@ export function LoginPage({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   return (
-    <div className="min-h-screen bg-paper text-ink flex flex-col justify-between px-4 py-8">
-      <div className="mx-auto w-full max-w-[400px] pt-10 sm:pt-20">
-        <div className="border-b border-ink pb-4 mb-6">
-          <div className="flex items-baseline justify-between">
-            <h1 className="font-mono text-lg font-bold tracking-tight">AGENTRY</h1>
-            <span className="font-mono text-[11px] text-ink-muted">MCP 注册中心</span>
-          </div>
-          <p className="mt-1.5 text-xs text-ink-secondary leading-relaxed">
-            面向人类管理员的 MCP 活跃版本审阅、工作区浏览与密钥治理工作台。
-          </p>
+    <div className="min-h-screen bg-paper text-ink flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-[360px]">
+        <div className="border-b border-ink pb-3 mb-5 flex items-baseline justify-between">
+          <h1 className="font-mono text-base font-bold tracking-tight">AGENTRY</h1>
+          <span className="text-xs text-ink-muted">MCP 注册中心</span>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 border border-hairline bg-surface p-5">
-          <div>
-            <h2 className="text-sm font-semibold text-ink">登录工作台</h2>
-            <p className="mt-0.5 text-xs text-ink-muted">
-              使用人类 Web 会话 Cookie 登录；API Key 仅用于 MCP 客户端调用。
-            </p>
-          </div>
+          <h2 className="text-sm font-semibold text-ink">登录账号</h2>
 
           {errorMessage ? (
             <div
@@ -110,16 +100,7 @@ export function LoginPage({ onSuccess }: { onSuccess?: () => void }) {
             <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
         </form>
-
-        <div className="mt-4 border-t border-hairline pt-3 text-[11px] text-ink-muted font-mono flex items-center justify-between">
-          <span>MCP 入口：/mcp · /admin/mcp</span>
-          <span>人类审批门禁</span>
-        </div>
       </div>
-
-      <footer className="mx-auto w-full max-w-[400px] text-[11px] text-ink-muted">
-        修订批准与三方冲突解决必须由人类 Web 会话执行。
-      </footer>
     </div>
   );
 }

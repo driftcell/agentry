@@ -74,7 +74,7 @@ describe("Base UI & workbench components", () => {
     ];
     render(<ClientSetupHelper projects={projects} defaultProjectSlug="default" />);
 
-    const fixedAdminBtn = screen.getByRole("button", { name: /固定管理入口/i });
+    const fixedAdminBtn = screen.getByRole("button", { name: /标准管理/i });
     expect((fixedAdminBtn as HTMLButtonElement).disabled).toBe(true);
 
     const proposeScopeBtn = screen.getByRole("button", { name: "admin:propose" });
@@ -82,7 +82,7 @@ describe("Base UI & workbench components", () => {
     expect((fixedAdminBtn as HTMLButtonElement).disabled).toBe(false);
 
     fireEvent.click(fixedAdminBtn);
-    expect(screen.getByText(/接入地址：.*\/admin\/mcp/)).toBeDefined();
+    expect(screen.getByText(/地址：.*\/admin\/mcp/)).toBeDefined();
   });
 
   test("ConfirmDialog invokes onConfirm through Base UI Dialog", () => {
@@ -91,16 +91,16 @@ describe("Base UI & workbench components", () => {
       <ConfirmDialog
         open={true}
         onOpenChange={() => {}}
-        title="确认立即激活"
-        description="原子切换项目的 Active Revision。"
-        confirmLabel="立即激活"
+        title="批准并立即激活？"
+        description="确认切换当前生效版本。"
+        confirmLabel="确认激活"
         onConfirm={() => {
           confirmed = true;
         }}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "立即激活" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认激活" }));
     expect(confirmed).toBe(true);
   });
 
@@ -128,8 +128,8 @@ describe("Base UI & workbench components", () => {
       <DiffViewer
         path="CLAUDE.md"
         mode="split"
-        leftLabel="当前 Active"
-        rightLabel="传入 Incoming"
+        leftLabel="当前生效"
+        rightLabel="本次变更"
         leftSide={baseSide}
         rightSide={nextSide}
       />,
@@ -143,8 +143,8 @@ describe("Base UI & workbench components", () => {
       <DiffViewer
         path="CLAUDE.md"
         mode="unified"
-        leftLabel="当前 Active"
-        rightLabel="传入 Incoming"
+        leftLabel="当前生效"
+        rightLabel="本次变更"
         leftSide={baseSide}
         rightSide={baseSide}
       />,
@@ -155,8 +155,8 @@ describe("Base UI & workbench components", () => {
       <DiffViewer
         path="assets/mark.png"
         mode="split"
-        leftLabel="当前 Active"
-        rightLabel="传入 Incoming"
+        leftLabel="当前生效"
+        rightLabel="本次变更"
         leftSide={{
           path: "assets/mark.png",
           side: "active",
@@ -181,8 +181,8 @@ describe("Base UI & workbench components", () => {
         }}
       />,
     );
-    expect(screen.getByText("下载 当前 Active")).toBeDefined();
-    expect(screen.getByText("下载 传入 Incoming")).toBeDefined();
+    expect(screen.getByText("下载 当前生效")).toBeDefined();
+    expect(screen.getByText("下载 本次变更")).toBeDefined();
   });
 
   test("ConflictMerger resolves conflict hunks via Accept Incoming and submits clean resolution", async () => {
@@ -267,11 +267,11 @@ describe("Base UI & workbench components", () => {
       );
 
       const acceptIncomingButtons = await screen.findAllByRole("button", {
-        name: /采纳传入/,
+        name: /使用传入/,
       });
       expect(acceptIncomingButtons).toHaveLength(2);
       const saveBtn = screen.getByRole("button", {
-        name: /保存解决结果并回到待审批/i,
+        name: /保存解决结果/i,
       }) as HTMLButtonElement;
       expect(saveBtn.disabled).toBe(true);
 
