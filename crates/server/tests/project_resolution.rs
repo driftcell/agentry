@@ -157,9 +157,30 @@ async fn project_sources_follow_the_fixed_priority_table() {
             Some(json!({"name": "proposer", "scopes": ["admin:propose"]})),
         )
         .await;
-    let (status, body) = call(&app, proposer["api_key"].as_str().unwrap(), "/mcp", None).await;
+    let proposer_key = proposer["api_key"].as_str().unwrap();
+    let (status, body) = call(&app, proposer_key, "/mcp", None).await;
     assert_eq!(status, 403);
     assert_eq!(http_error_code(&body), "INSUFFICIENT_SCOPE");
+    let activate = app
+        .mcp(
+            "/admin/mcp",
+            proposer_key,
+            "activate_revision",
+            json!({"revision_id": "00000000-0000-0000-0000-000000000000"}),
+        )
+        .await
+        .expect_err("admin:activate is required");
+    assert_eq!(activate["error"]["code"], "FORBIDDEN");
+    let platform = app
+        .mcp(
+            "/admin/mcp",
+            proposer_key,
+            "manage_platform",
+            json!({"action": "list_users"}),
+        )
+        .await
+        .expect_err("admin:platform is required");
+    assert_eq!(platform["error"]["code"], "FORBIDDEN");
 
     // Revocation is immediate.
     let keys = app

@@ -150,35 +150,35 @@
 
 **目标：** 提供人类管理、审查与冲突处理界面，不复制 MCP 中不存在的业务规则。
 
-- [ ] **T6.1　建立 TanStack SPA 与 shadcn/ui 基础。** 配置 TanStack Router、数据加载/错误状态、统一 API Client 和四类主页面导航；所有写操作复用后端领域服务。
-- [ ] **T6.2　落实纸张与墨水灰阶设计。** 使用高对比、低噪点的 Editorial Monospace & Neutral Grayscale；避免渐变装饰和套娃卡片，保持信息密度、清晰层级与可用留白。
-- [ ] **T6.3　统一技术数字排版。** Token 数、SHA-256 短哈希、Revision 号和耗时统一启用 `font-variant-numeric: tabular-nums`，长哈希可复制且不破坏布局。
-- [ ] **T6.4　实现 Dashboard。** 顶部单行指标条展示托管项目数、Active Skills 总数、整库 Token 预算水位、待审批 Revisions 数量；下方展示最近 Commit 审查动态流和 API Key 调用统计。
-- [ ] **T6.5　实现 Workspace Explorer。** 使用 shadcn/ui Collapsible + Button File Tree，标识 `CLAUDE.md`、`AGENTS.md`、`SKILL.md`、Sub-agent 与 Token 徽章；文件选择与 Diff/内容视图同步。
-- [ ] **T6.6　实现 Diff Studio。** 支持 Split / Unified 切换、文件级 Token 增减、Base/Active/Incoming 差异展示和空差异状态；长文件按需加载，避免一次渲染整库。
-- [ ] **T6.7　实现三方冲突可视化合并器。** 支持 Accept Current (Active)、Accept Incoming、Accept Both，以及手动编辑后保存；保存调用冲突解决服务并使 Revision 回到待审状态。
-- [ ] **T6.8　实现 Review Queue。** 汇总 `pending_review` 与 `conflict` 提交，展示完整 `commit_message`、文件级 Token 增减、状态与评论；提供 Approve、Approve & Activate Now、Reject，并进行权限和二次确认处理。
-- [ ] **T6.9　实现 Projects、Users & API Keys。** 支持多项目、用户、Key 生命周期和 `mcp:read / admin:propose / admin:activate / admin:platform` Scope 管理；签发秘密只完整展示一次。
-- [ ] **T6.10　实现客户端接入配置复制。** 一键复制 Claude Code / OpenCode 配置，覆盖固定 `/mcp`、项目 Slug URL 与对应 `/admin/mcp` 用法，不生成越权 Scope。
+- [x] **T6.1　建立 TanStack SPA 与 shadcn/ui 基础。** 配置 TanStack Router、数据加载/错误状态、统一 API Client 和四类主页面导航；所有写操作复用后端领域服务。
+- [x] **T6.2　落实纸张与墨水灰阶设计。** 使用高对比、低噪点的 Editorial Monospace & Neutral Grayscale；避免渐变装饰和套娃卡片，保持信息密度、清晰层级与可用留白。
+- [x] **T6.3　统一技术数字排版。** Token 数、SHA-256 短哈希、Revision 号和耗时统一启用 `font-variant-numeric: tabular-nums`，长哈希可复制且不破坏布局。
+- [x] **T6.4　实现 Dashboard。** 顶部单行指标条展示托管项目数、Active Skills 总数、整库 Token 预算水位、待审批 Revisions 数量；下方展示最近 Commit 审查动态流和 API Key 调用统计。
+- [x] **T6.5　实现 Workspace Explorer。** 使用 shadcn/ui Collapsible + Button File Tree，标识 `CLAUDE.md`、`AGENTS.md`、`SKILL.md`、Sub-agent 与 Token 徽章；文件选择与 Diff/内容视图同步。
+- [x] **T6.6　实现 Diff Studio。** 支持 Split / Unified 切换、文件级 Token 增减、Base/Active/Incoming 差异展示和空差异状态；长文件按需加载，避免一次渲染整库。
+- [x] **T6.7　实现三方冲突可视化合并器。** 支持 Accept Current (Active)、Accept Incoming、Accept Both，以及手动编辑后保存；保存调用冲突解决服务并使 Revision 回到待审状态。
+- [x] **T6.8　实现 Review Queue。** 汇总 `pending_review` 与 `conflict` 提交，展示完整 `commit_message`、文件级 Token 增减、状态与评论；提供 Approve、Approve & Activate Now、Reject，并进行权限和二次确认处理。
+- [x] **T6.9　实现 Projects、Users & API Keys。** 支持多项目、用户、Key 生命周期和 `mcp:read / admin:propose / admin:activate / admin:platform` Scope 管理；签发秘密只完整展示一次。
+- [x] **T6.10　实现客户端接入配置复制。** 一键复制 Claude Code / OpenCode 配置，覆盖固定 `/mcp`、项目 Slug URL 与对应 `/admin/mcp` 用法，不生成越权 Scope。
 - [ ] **T6.11　补齐交互与可访问性验收。** 覆盖加载、空数据、失败、冲突、无权限和并发状态变化；关键操作可键盘完成，灰阶界面仍满足可读性，不仅靠颜色表达状态。
 
 **出口验收**
 
-- [ ] 四个核心界面均连接真实 API，不存在只更新本地状态的假按钮。
-- [ ] Web 审批后，Agent 侧 `activate_revision` 才具备可激活的 Revision；Reject 后保持不可激活。
-- [ ] 冲突编辑、人工合并和保存结果与 MCP 查询到的 Revision 状态一致。
-- [ ] 所有指标、Token 数字、版本和哈希按统一格式展示，长文档与多项目场景可用。
+- [x] 四个核心界面均连接真实 API，不存在只更新本地状态的假按钮。
+- [x] Web 审批后，Agent 侧 `activate_revision` 才具备可激活的 Revision；Reject 后保持不可激活。
+- [x] 冲突编辑、人工合并和保存结果与 MCP 查询到的 Revision 状态一致。
+- [x] 所有指标、Token 数字、版本和哈希按统一格式展示，长文档与多项目场景可用。
 
 ## M7　工程化与发布
 
 **目标：** 把构建、质量、安全和端到端流程固化为可重复执行的发布门禁。
 
-- [ ] **T7.1　实现 `cargo xtask build-web`。** 在 `web/` 下执行 `bun install && bun run build`，将 TanStack SPA 产物输出到 `crates/server/static/`；重复构建结果一致，失败时返回非零状态。
+- [x] **T7.1　实现 `cargo xtask build-web`。** 在 `web/` 下执行 `bun install && bun run build`，将 TanStack SPA 产物输出到 `crates/server/static/`；重复构建结果一致，失败时返回非零状态。
 - [x] **T7.2　实现 Axum 静态托管。** 正确提供 SPA 静态资源与前端路由 Fallback，同时确保 `/mcp`、`/admin/mcp` 及项目路径不会被 SPA Fallback 吞掉。
 - [ ] **T7.3　配置一键 Pre-commit 门禁。** 配置 `.git/hooks/pre-commit`，串联 `cargo fmt --check`、`cargo clippy -- -D warnings`、`cargo test`、`bun fmt --check`、`bun check`、`bunx oxlint --deny-warnings`、`bun test`。
 - [ ] **T7.4　完成容器发布构建。** 镜像内包含 Rust 服务与已构建 SPA；Compose 仍只包含 PostgreSQL 和 `mcp-registry-server`，启动时执行 Migration/Seed，并配置健康检查与持久化数据卷。
 - [ ] **T7.5　建立分层测试套件。** 单元测试覆盖 Token、Markdown、Diff、状态机；数据库集成测试覆盖事务和权限；OSS 集成测试覆盖签名 URL；MCP 合约测试覆盖双端点；Web E2E 覆盖审批闭环。
-- [ ] **T7.6　执行安全与信任边界检查。** 验证 Scope 默认拒绝、跨项目隔离、路径规范化、Presigned URL 最小权限与短时效、秘密脱敏、上传大小限制，以及生成命令的安全转义。
+- [x] **T7.6　执行安全与信任边界检查。** 验证 Scope 默认拒绝、跨项目隔离、路径规范化、Presigned URL 最小权限与短时效、秘密脱敏、上传大小限制，以及生成命令的安全转义。
 - [x] **T7.7　建立性能与体积基准。** 在固定数据集记录 `resources/read`、Workspace 树、Outline 和 Diff 的延迟与响应体积；验证 PG 原文毫秒级读取目标，防止全量 Token 重算或 N+1 查询。
 - [x] **T7.8　补齐运行文档。** 说明 Compose 部署、外部 OSS 环境变量、Seed 与默认口令处理、API Key Scope、Claude Code/OpenCode 接入、审批流程、备份恢复和故障排查。
 - [ ] **T7.9　完成干净环境发布演练。** 从不含本地缓存的 Checkout 构建前端和后端，启动 Compose，跑通全部关键 E2E，再生成发布产物与版本记录。
@@ -196,15 +196,15 @@
 - [x] **E2　Header 优先级：** 同时提供 `X-MCP-Project` 和不同 `default_project_id`，验证 Header 优先且越权时直接失败。
 - [x] **E3　多项目挂载：** 使用同一跨项目 Key，通过两个 `/mcp/projects/{slug}` 地址读取不同项目，内容和 Skills 不串线。
 - [x] **E4　分片读取：** 对大型 `CLAUDE.md` 依次调用 `inspect_workspace`、`read_slice(outline)`、`read_slice(section)`，只返回所需内容并带正确 Token 数。
-- [ ] **E5　本地下载：** 调用 `pull_bundle_url`，验证签名 URL、指定文件集、Safe Command、过期失效及路径越权拒绝。
+- [x] **E5　本地下载：** 调用 `pull_bundle_url`，验证签名 URL、指定文件集、Safe Command、过期失效及路径越权拒绝。
 - [x] **E6　无冲突发布：** `stage_upload_urls` → 上传 → `propose_revision` → Web Approve → `activate_revision` → `/mcp` 读到新 Active。
-- [ ] **E7　Inline Patch 发布：** 以 `inline_patches` 提案，验证 Base 校验、Token Diff、人类审批和激活闭环。
-- [ ] **E8　冲突解决：** 制造 Base/Active/Incoming 同行冲突，确认进入 `conflict`；解决后回到 `pending_review`，重新审批后才能激活。
+- [x] **E7　Inline Patch 发布：** 以 `inline_patches` 提案，验证 Base 校验、Token Diff、人类审批和激活闭环。
+- [x] **E8　冲突解决：** 制造 Base/Active/Incoming 同行冲突，确认进入 `conflict`；解决后回到 `pending_review`，重新审批后才能激活。
 - [x] **E9　审批不可绕过：** 对 `pending_review`、`rejected`、`conflict` Revision 直接调用 `activate_revision`，全部失败且 Active 不变。
 - [x] **E10　Approve & Activate Now：** Web 人类管理员执行组合操作，验证数据库原子性、审计记录与 Agent 后续状态查询一致。
 - [ ] **E11　权限与吊销：** 分别缺少 `mcp:read`、`admin:propose`、`admin:activate`、`admin:platform` 时调用对应能力，均被拒绝；吊销 Key 后立即失效。
 - [x] **E12　大附件交付：** 非文本附件仅在通过 Project 鉴权后签发 OSS 签名链接/重定向，MCP JSON 不包含二进制正文；链接权限最小且短时有效，并在文档中明确「持有链接者可在有效期内访问」的能力边界。
-- [ ] **E13　SPA 与 MCP 共存：** 深层 TanStack 路由可刷新，四组 MCP 路由不被静态资源 Fallback 拦截。
+- [x] **E13　SPA 与 MCP 共存：** 深层 TanStack 路由可刷新，四组 MCP 路由不被静态资源 Fallback 拦截。
 - [ ] **E14　干净部署：** 全新环境仅依赖 Compose 与外部 OSS 即完成 Migration、Seed、构建和上述核心流程。
 
 ## 发布完成定义（Definition of Done）
