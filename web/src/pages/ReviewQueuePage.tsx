@@ -63,17 +63,17 @@ function ExpandableRevisionFiles({ revisionId }: { revisionId: string }) {
           className="h-3 w-3 transition-transform group-data-panel-open:rotate-90"
           aria-hidden="true"
         />
-        <span>{open ? "Hide file token diffs" : "Inspect file token diffs"}</span>
+        <span>{open ? "收起文件级 Token 差异" : "展开文件级 Token 差异"}</span>
       </CollapsibleTrigger>
 
       <CollapsibleContent className="mt-2 border border-hairline bg-paper">
         {detailQuery.isLoading ? (
-          <div className="px-3 py-2 font-mono text-[11px] text-ink-muted">Loading file diffs…</div>
+          <div className="px-3 py-2 font-mono text-[11px] text-ink-muted">正在加载文件差异…</div>
         ) : detailQuery.error ? (
-          <div className="px-3 py-2 font-mono text-[11px] text-red-700">Unable to load files.</div>
+          <div className="px-3 py-2 font-mono text-[11px] text-red-700">加载文件差异失败。</div>
         ) : changedFiles.length === 0 ? (
           <div className="px-3 py-2 font-mono text-[11px] text-ink-muted">
-            No file content changes relative to active snapshot.
+            相对当前激活版本无内容变更。
           </div>
         ) : (
           <ul className="divide-y divide-hairline">
@@ -83,8 +83,12 @@ function ExpandableRevisionFiles({ revisionId }: { revisionId: string }) {
                 className="flex items-center justify-between gap-3 px-3 py-1.5 text-xs font-mono"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <Badge variant="muted" className="uppercase text-[10px]">
-                    {file.change_type}
+                  <Badge variant="muted" className="text-[10px]">
+                    {file.change_type === "added"
+                      ? "新增"
+                      : file.change_type === "modified"
+                        ? "修改"
+                        : "删除"}
                   </Badge>
                   <span className="truncate text-ink">{file.path}</span>
                 </div>
@@ -174,10 +178,7 @@ export function ReviewQueuePage() {
       await invalidateAll(row.id);
     } catch (err) {
       setConfirmTarget(null);
-      const message =
-        err instanceof ApiError
-          ? `${err.code}: ${err.message}`
-          : "Unable to complete review action.";
+      const message = err instanceof ApiError ? `${err.code}: ${err.message}` : "操作执行失败。";
       setRowError((prev) => ({ ...prev, [row.id]: message }));
     } finally {
       setBusyId(null);
@@ -190,16 +191,16 @@ export function ReviewQueuePage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-hairline pb-3">
         <div>
-          <h1 className="text-base font-semibold tracking-tight text-ink">Human Review Queue</h1>
+          <h1 className="text-base font-semibold tracking-tight text-ink">人类审批队列</h1>
           <p className="mt-0.5 text-xs text-ink-secondary">
-            Approve, reject, or resolve merge conflicts. Agents can propose and activate approved
-            revisions, never approve on your behalf.
+            汇总待审与冲突修订，支持 Approve、Approve &amp; Activate Now、Reject
+            及三方冲突解决；Agent 无法绕过人类审批。
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <label htmlFor="review-project-filter" className="font-mono text-[11px] text-ink-muted">
-            PROJECT
+            项目筛选
           </label>
           <Select
             id="review-project-filter"
@@ -207,7 +208,7 @@ export function ReviewQueuePage() {
             onChange={(e) => setScopeSlug(e.target.value)}
             className="h-7 min-w-[160px] font-mono"
           >
-            <option value="">All projects ({projects.length})</option>
+            <option value="">全部项目 ({projects.length})</option>
             {projects.map((p) => (
               <option key={p.id} value={p.slug}>
                 {p.slug}
@@ -224,31 +225,31 @@ export function ReviewQueuePage() {
               className={cn("h-3.5 w-3.5", revisionsQuery.isFetching && "animate-spin")}
               aria-hidden="true"
             />
-            <span>Refresh</span>
+            <span>刷新</span>
           </Button>
         </div>
       </div>
 
       {!canApprove ? (
         <ForbiddenPanel
-          title="Read-only review view"
-          description="Your role is member. Approving, rejecting, or resolving conflicts requires an admin or superadmin session."
+          title="当前账号为只读审批视图"
+          description="你的角色为 member。批准、拒绝或解决冲突需要 admin 或 superadmin 会话。"
         />
       ) : null}
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as QueueFilter)}>
         <TabsList>
-          <TabsTrigger value="queue">Needs Attention</TabsTrigger>
-          <TabsTrigger value="approved">Approved</TabsTrigger>
-          <TabsTrigger value="history">Active &amp; History</TabsTrigger>
+          <TabsTrigger value="queue">待处理（待审与冲突）</TabsTrigger>
+          <TabsTrigger value="approved">已批准待激活</TabsTrigger>
+          <TabsTrigger value="history">已激活与历史</TabsTrigger>
         </TabsList>
       </Tabs>
 
       {revisionsQuery.isLoading ? (
-        <LoadingPanel label="Loading revision queue…" />
+        <LoadingPanel label="正在加载审批队列…" />
       ) : revisionsQuery.error ? (
         <ErrorPanel
-          title="Failed to load revisions"
+          title="审批队列加载失败"
           error={revisionsQuery.error}
           onRetry={() => void revisionsQuery.refetch()}
         />
@@ -256,15 +257,13 @@ export function ReviewQueuePage() {
         <EmptyPanel
           title={
             tab === "queue"
-              ? "Review queue is clear"
+              ? "当前没有待审批或冲突修订"
               : tab === "approved"
-                ? "No approved revisions waiting for activation"
-                : "No historical revisions in this scope"
+                ? "没有等待 Agent 激活的已批准修订"
+                : "当前范围内暂无历史修订"
           }
           description={
-            tab === "queue"
-              ? "Incoming proposals from /admin/mcp that require review or conflict resolution will appear here."
-              : undefined
+            tab === "queue" ? "通过 /admin/mcp 提交的待审提案或合并冲突会显示在这里。" : undefined
           }
         />
       ) : (
@@ -290,7 +289,7 @@ export function ReviewQueuePage() {
                   <div className="flex flex-wrap items-center gap-3">
                     <TokenDelta added={row.token_added} removed={row.token_removed} />
                     <span className="mono-num text-[11px] text-ink-muted">
-                      {formatTokens(row.total_tokens)} tok · {row.file_count} files
+                      总计 {formatTokens(row.total_tokens)} tok · {row.file_count} 个文件
                     </span>
                     <span
                       title={formatTimestamp(row.created_at)}
@@ -307,15 +306,15 @@ export function ReviewQueuePage() {
                   </p>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-secondary">
                     <span>
-                      Author: <code className="font-mono text-ink">{row.author}</code>
+                      提交者：<code className="font-mono text-ink">{row.author}</code>
                     </span>
                     {row.reviewer ? (
                       <span>
-                        Reviewed by: <code className="font-mono text-ink">{row.reviewer}</code>
+                        审查员：<code className="font-mono text-ink">{row.reviewer}</code>
                       </span>
                     ) : null}
                     {row.comment ? (
-                      <span className="text-ink-muted">Comment: “{row.comment}”</span>
+                      <span className="text-ink-muted">审批意见：“{row.comment}”</span>
                     ) : null}
                   </div>
                 </div>
@@ -333,7 +332,7 @@ export function ReviewQueuePage() {
                       size="xs"
                       onClick={() => void revisionsQuery.refetch()}
                     >
-                      Sync
+                      同步状态
                     </Button>
                   </div>
                 ) : null}
@@ -353,12 +352,12 @@ export function ReviewQueuePage() {
                       {row.status === "conflict" ? (
                         <>
                           <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
-                          <span>Resolve Conflicts ({shortUuid(row.id)})</span>
+                          <span>处理三方冲突 ({shortUuid(row.id)})</span>
                         </>
                       ) : (
                         <>
                           <GitCompare className="h-3.5 w-3.5" aria-hidden="true" />
-                          <span>Open Diff Studio</span>
+                          <span>查看差异对比</span>
                         </>
                       )}
                     </Link>
@@ -368,12 +367,12 @@ export function ReviewQueuePage() {
                     <div className="flex flex-wrap items-center gap-2 flex-1 justify-end min-w-[260px]">
                       <Input
                         type="text"
-                        aria-label={`Review comment for ${row.id}`}
+                        aria-label={`${row.id} 审批意见`}
                         value={comments[row.id] ?? ""}
                         onChange={(e) =>
                           setComments((prev) => ({ ...prev, [row.id]: e.target.value }))
                         }
-                        placeholder="Review comment (optional)…"
+                        placeholder="填写审批意见（可选）…"
                         disabled={isBusy}
                         className="h-7 max-w-xs"
                       />
@@ -387,7 +386,7 @@ export function ReviewQueuePage() {
                             onClick={() => void executeAction("approve", row)}
                           >
                             <Check className="h-3 w-3" aria-hidden="true" />
-                            <span>{isBusy ? "Saving…" : "Approve"}</span>
+                            <span>{isBusy ? "处理中…" : "批准"}</span>
                           </Button>
                           <Button
                             size="xs"
@@ -395,7 +394,7 @@ export function ReviewQueuePage() {
                             onClick={() => setConfirmTarget({ kind: "activate", row })}
                           >
                             <Zap className="h-3 w-3" aria-hidden="true" />
-                            <span>Approve &amp; Activate Now</span>
+                            <span>批准并立即激活</span>
                           </Button>
                         </>
                       ) : null}
@@ -407,7 +406,7 @@ export function ReviewQueuePage() {
                         onClick={() => setConfirmTarget({ kind: "reject", row })}
                       >
                         <XCircle className="h-3 w-3" aria-hidden="true" />
-                        <span>Reject</span>
+                        <span>拒绝</span>
                       </Button>
                     </div>
                   ) : null}
@@ -423,9 +422,9 @@ export function ReviewQueuePage() {
         onOpenChange={(open) => {
           if (!open) setConfirmTarget(null);
         }}
-        title="Approve and activate revision now?"
-        description="This atomically marks the revision active and updates the project's live Active Revision pointer for all /mcp clients."
-        confirmLabel="Approve & Activate Now"
+        title="确认批准并立即激活？"
+        description="该操作将原子完成人类批准并切换项目的 Active Revision 指针，所有 /mcp 客户端会立即读取此版本。"
+        confirmLabel="批准并立即激活"
         pending={Boolean(confirmTarget && busyId === confirmTarget.row.id)}
         onConfirm={() => {
           if (confirmTarget) void executeAction("activate", confirmTarget.row);
@@ -434,9 +433,9 @@ export function ReviewQueuePage() {
           confirmTarget ? (
             <div className="border border-hairline bg-paper p-3 text-xs space-y-1 font-mono">
               <div>
-                Project: <span className="font-semibold">{confirmTarget.row.project_slug}</span>
+                项目：<span className="font-semibold">{confirmTarget.row.project_slug}</span>
               </div>
-              <div>Revision: {shortUuid(confirmTarget.row.id, 12)}</div>
+              <div>修订：{shortUuid(confirmTarget.row.id, 12)}</div>
               <TokenDelta
                 added={confirmTarget.row.token_added}
                 removed={confirmTarget.row.token_removed}
@@ -451,9 +450,9 @@ export function ReviewQueuePage() {
         onOpenChange={(open) => {
           if (!open) setConfirmTarget(null);
         }}
-        title="Reject this revision?"
-        description="Rejected revisions cannot be activated later."
-        confirmLabel="Reject Revision"
+        title="确认拒绝此修订？"
+        description="被拒绝的修订将保持不可激活状态。"
+        confirmLabel="确认拒绝"
         variant="destructive"
         pending={Boolean(confirmTarget && busyId === confirmTarget.row.id)}
         onConfirm={() => {
@@ -463,9 +462,9 @@ export function ReviewQueuePage() {
           confirmTarget ? (
             <div className="border border-hairline bg-paper p-3 text-xs space-y-1 font-mono">
               <div>
-                Project: <span className="font-semibold">{confirmTarget.row.project_slug}</span>
+                项目：<span className="font-semibold">{confirmTarget.row.project_slug}</span>
               </div>
-              <div>Comment: {(comments[confirmTarget.row.id] ?? "").trim() || "(no comment)"}</div>
+              <div>审批意见：{(comments[confirmTarget.row.id] ?? "").trim() || "（无）"}</div>
             </div>
           ) : null
         }

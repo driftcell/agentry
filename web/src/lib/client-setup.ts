@@ -56,8 +56,7 @@ export function generateClientSetup(input: ClientSetupInput): ClientSetupResult 
   if (isAdminMode && !hasAdminScope(input.scopes)) {
     return {
       allowed: false,
-      errorReason:
-        "Selected scopes do not include any admin:* permission. Cannot generate an /admin/mcp configuration without elevating beyond key scopes.",
+      errorReason: "所选 Scope 不包含任何 admin:* 权限，禁止生成越权的 /admin/mcp 管理端接入配置。",
       url,
       requiredScopes,
       claudeJson: "",
@@ -69,8 +68,7 @@ export function generateClientSetup(input: ClientSetupInput): ClientSetupResult 
   if (!isAdminMode && !input.scopes.includes("mcp:read")) {
     return {
       allowed: false,
-      errorReason:
-        "Selected scopes do not include mcp:read. Read-only /mcp endpoints require the mcp:read scope.",
+      errorReason: "所选 Scope 不包含 mcp:read，无法生成只读 /mcp 入口配置。",
       url,
       requiredScopes,
       claudeJson: "",

@@ -181,7 +181,7 @@ export function WorkspaceFileTree({
   onToggleDir,
 }: WorkspaceFileTreeProps) {
   return (
-    <div role="tree" aria-label="Workspace files" className="flex flex-col gap-0.5">
+    <div role="tree" aria-label="工作区文件树" className="flex flex-col gap-0.5">
       {nodes.map((node) =>
         node.type === "dir" ? (
           <DirectoryItem

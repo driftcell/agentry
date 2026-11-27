@@ -23,7 +23,7 @@ export function StatusBadge({ status, stale = false, conflictCount }: StatusBadg
       badge = (
         <Badge variant="solid">
           <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-          <span>ACTIVE</span>
+          <span>生效中</span>
         </Badge>
       );
       break;
@@ -31,7 +31,7 @@ export function StatusBadge({ status, stale = false, conflictCount }: StatusBadg
       badge = (
         <Badge variant="outline">
           <Clock className="h-3 w-3" aria-hidden="true" />
-          <span>PENDING REVIEW</span>
+          <span>待审批</span>
         </Badge>
       );
       break;
@@ -39,7 +39,7 @@ export function StatusBadge({ status, stale = false, conflictCount }: StatusBadg
       badge = (
         <Badge variant="added">
           <Check className="h-3 w-3" aria-hidden="true" />
-          <span>APPROVED</span>
+          <span>已批准</span>
         </Badge>
       );
       break;
@@ -48,7 +48,7 @@ export function StatusBadge({ status, stale = false, conflictCount }: StatusBadg
         <Badge variant="warning">
           <AlertTriangle className="h-3 w-3" aria-hidden="true" />
           <span>
-            CONFLICT
+            存在冲突
             {conflictCount && conflictCount > 0 ? ` (${conflictCount})` : ""}
           </span>
         </Badge>
@@ -58,7 +58,7 @@ export function StatusBadge({ status, stale = false, conflictCount }: StatusBadg
       badge = (
         <Badge variant="removed" className="line-through">
           <XCircle className="h-3 w-3" aria-hidden="true" />
-          <span>REJECTED</span>
+          <span>已拒绝</span>
         </Badge>
       );
       break;
@@ -66,7 +66,7 @@ export function StatusBadge({ status, stale = false, conflictCount }: StatusBadg
       badge = (
         <Badge variant="dashed">
           <Archive className="h-3 w-3" aria-hidden="true" />
-          <span>SUPERSEDED</span>
+          <span>已替代</span>
         </Badge>
       );
       break;
@@ -76,9 +76,9 @@ export function StatusBadge({ status, stale = false, conflictCount }: StatusBadg
     <span className="inline-flex items-center gap-1.5">
       {badge}
       {stale && status !== "active" && status !== "superseded" && status !== "rejected" ? (
-        <Badge variant="warning" title="Merged against an older active revision">
+        <Badge variant="warning" title="该修订基于更早的 Active Revision 合并，当前基线已变化">
           <GitCommitHorizontal className="h-3 w-3" aria-hidden="true" />
-          <span>STALE</span>
+          <span>基线已变更</span>
         </Badge>
       ) : null}
     </span>

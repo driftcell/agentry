@@ -24,26 +24,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const navItems = [
     {
       to: "/" as const,
-      label: "Dashboard",
+      label: "概览",
       icon: Activity,
       active: pathname === "/",
     },
     {
       to: "/explorer" as const,
-      label: "Explorer",
+      label: "工作区浏览器",
       icon: FolderTree,
       active: pathname.startsWith("/explorer") || pathname.includes("/workspace"),
     },
     {
       to: "/review" as const,
-      label: "Review Queue",
+      label: "审批队列",
       icon: GitPullRequest,
       active: pathname.startsWith("/review") || pathname.startsWith("/revisions"),
       badge: pendingCount > 0 ? pendingCount : null,
     },
     {
       to: "/platform" as const,
-      label: "Platform",
+      label: "平台管理",
       icon: Settings2,
       active: pathname.startsWith("/platform"),
     },
@@ -55,7 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-sm focus:bg-zinc-950 focus:px-3 focus:py-1.5 focus:text-xs focus:text-white"
       >
-        Skip to content
+        跳转到正文
       </a>
 
       <header className="sticky top-0 z-30 border-b border-hairline bg-surface">
@@ -63,12 +63,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-6">
             <Link to="/" className="flex items-baseline gap-2 no-underline">
               <span className="font-mono text-sm font-bold tracking-tight text-ink">AGENTRY</span>
-              <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-widest text-ink-muted">
-                MCP Registry
+              <span className="hidden sm:inline font-mono text-[10px] tracking-wider text-ink-muted">
+                MCP 注册中心
               </span>
             </Link>
 
-            <nav aria-label="Primary" className="flex items-center gap-1">
+            <nav aria-label="主导航" className="flex items-center gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -108,11 +108,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   htmlFor="global-project-select"
                   className="hidden md:inline font-mono text-[11px] text-ink-muted"
                 >
-                  PROJECT
+                  当前项目
                 </label>
                 <Select
                   id="global-project-select"
-                  aria-label="Active project context"
+                  aria-label="当前项目上下文"
                   value={selectedProjectSlug}
                   onChange={(e) => setSelectedProjectSlug(e.target.value)}
                   className="h-7 min-w-[140px] font-mono text-xs"
@@ -136,11 +136,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   variant="ghost"
                   size="xs"
                   onClick={() => void logout()}
-                  aria-label="Sign out"
-                  title="Sign out"
+                  aria-label="退出登录"
+                  title="退出登录"
                 >
                   <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span className="hidden sm:inline">Sign out</span>
+                  <span className="hidden sm:inline">退出</span>
                 </Button>
               </div>
             ) : null}

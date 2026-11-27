@@ -110,17 +110,15 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
     const name = newProjName.trim();
     const budget = Number(newBudget);
     if (!/^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/.test(slug)) {
-      setProjError(
-        "Slug must be 3-64 lowercase letters, digits, or dashes (cannot start or end with a dash).",
-      );
+      setProjError("Slug 必须为 3–64 位小写字母、数字或连字符（不能以连字符开头或结尾）。");
       return;
     }
     if (!name) {
-      setProjError("Project name is required.");
+      setProjError("请填写项目名称。");
       return;
     }
     if (!Number.isInteger(budget) || budget <= 0) {
-      setProjError("Token budget must be a positive integer.");
+      setProjError("Token 预算必须为正整数。");
       return;
     }
 
@@ -145,9 +143,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
     } catch (err) {
-      setProjError(
-        err instanceof ApiError ? `${err.code}: ${err.message}` : "Failed to create project.",
-      );
+      setProjError(err instanceof ApiError ? `${err.code}: ${err.message}` : "创建项目失败。");
     } finally {
       setProjSaving(false);
     }
@@ -163,11 +159,11 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
     event.preventDefault();
     if (!effectiveKeySlug) return;
     if (!keyName.trim()) {
-      setKeyError("Key name is required.");
+      setKeyError("请填写 API Key 名称。");
       return;
     }
     if (keyScopes.length === 0) {
-      setKeyError("Select at least one scope.");
+      setKeyError("请至少勾选一个 Scope 权限。");
       return;
     }
 
@@ -189,9 +185,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
       setIssuedSecret(result);
       await queryClient.invalidateQueries({ queryKey: ["project-keys", effectiveKeySlug] });
     } catch (err) {
-      setKeyError(
-        err instanceof ApiError ? `${err.code}: ${err.message}` : "Failed to issue API key.",
-      );
+      setKeyError(err instanceof ApiError ? `${err.code}: ${err.message}` : "签发 API Key 失败。");
     } finally {
       setKeySaving(false);
     }
@@ -206,9 +200,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
       await queryClient.invalidateQueries({ queryKey: ["project-keys", effectiveKeySlug] });
     } catch (err) {
       setRevokeTarget(null);
-      setKeyError(
-        err instanceof ApiError ? `${err.code}: ${err.message}` : "Failed to revoke key.",
-      );
+      setKeyError(err instanceof ApiError ? `${err.code}: ${err.message}` : "吊销密钥失败。");
     } finally {
       setRevoking(false);
     }
@@ -218,11 +210,11 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
     event.preventDefault();
     const username = newUsername.trim();
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$/.test(username)) {
-      setUserError("Username must be 3-64 letters, digits, dots, underscores, or dashes.");
+      setUserError("用户名必须为 3–64 位字母、数字、点、下划线或连字符。");
       return;
     }
     if (newPassword.length < 8) {
-      setUserError("Password must be at least 8 characters.");
+      setUserError("密码长度至少需要 8 个字符。");
       return;
     }
 
@@ -242,9 +234,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
       setNewRole("member");
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     } catch (err) {
-      setUserError(
-        err instanceof ApiError ? `${err.code}: ${err.message}` : "Failed to create user.",
-      );
+      setUserError(err instanceof ApiError ? `${err.code}: ${err.message}` : "创建用户失败。");
     } finally {
       setUserSaving(false);
     }
@@ -265,50 +255,48 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-hairline pb-3">
         <div>
-          <h1 className="text-base font-semibold tracking-tight text-ink">
-            Platform Governance &amp; Client Setup
-          </h1>
+          <h1 className="text-base font-semibold tracking-tight text-ink">平台治理与客户端接入</h1>
           <p className="mt-0.5 text-xs text-ink-secondary">
-            Manage isolated projects, scoped Bearer API keys, user roles, and Claude Code / OpenCode
-            configurations.
+            管理隔离项目、Scoped Bearer API Key、工作台用户角色以及 Claude Code / OpenCode
+            接入配置。
           </p>
         </div>
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as PlatformTab)}>
         <TabsList>
-          <TabsTrigger value="projects">Projects ({projects.length})</TabsTrigger>
+          <TabsTrigger value="projects">项目管理 ({projects.length})</TabsTrigger>
           <TabsTrigger value="keys">API Keys</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="setup">Client Setup</TabsTrigger>
+          <TabsTrigger value="users">用户管理</TabsTrigger>
+          <TabsTrigger value="setup">客户端接入</TabsTrigger>
         </TabsList>
 
         <TabsContent value="projects" className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs text-ink-secondary">
-              Each project maintains an independent{" "}
-              <code className="font-mono">active_revision_id</code> and token budget.
+              每个项目拥有独立的 <code className="font-mono">active_revision_id</code> 指针与 Token
+              预算上限。
             </p>
             {canApprove ? (
               <Button size="sm" onClick={() => setCreateProjectOpen(true)}>
                 <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Create Project</span>
+                <span>新建项目</span>
               </Button>
             ) : null}
           </div>
 
           {projects.length === 0 ? (
-            <EmptyPanel title="No projects available" />
+            <EmptyPanel title="暂无可用项目" />
           ) : (
             <div className="overflow-x-auto border border-hairline bg-surface">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-hairline bg-subtle/60 text-left font-mono text-[11px] text-ink-muted">
                     <th className="px-3 py-2 font-medium">Slug</th>
-                    <th className="px-3 py-2 font-medium">Name</th>
-                    <th className="px-3 py-2 font-medium">Active Revision</th>
-                    <th className="px-3 py-2 text-right font-medium">Token Budget</th>
-                    <th className="px-3 py-2 text-right font-medium">Actions</th>
+                    <th className="px-3 py-2 font-medium">名称与说明</th>
+                    <th className="px-3 py-2 font-medium">当前 Active Revision</th>
+                    <th className="px-3 py-2 text-right font-medium">Token 预算</th>
+                    <th className="px-3 py-2 text-right font-medium">操作</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-hairline">
@@ -330,11 +318,11 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                               params={{ revisionId: p.active_revision_id }}
                               className="font-mono text-[11px] text-ink-secondary hover:text-ink underline underline-offset-2"
                             >
-                              Diff
+                              查看快照
                             </Link>
                           </div>
                         ) : (
-                          <Badge variant="dashed">UNSEEDED</Badge>
+                          <Badge variant="dashed">未激活版本</Badge>
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-right mono-num text-ink">
@@ -347,7 +335,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                             onClick={() => setSelectedProjectSlug(p.slug)}
                             className="font-mono text-[11px] text-ink underline underline-offset-2"
                           >
-                            Explorer
+                            工作区
                           </Link>
                           {canApprove ? (
                             <button
@@ -358,7 +346,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                               }}
                               className="font-mono text-[11px] text-ink underline underline-offset-2 cursor-pointer"
                             >
-                              Keys
+                              密钥
                             </button>
                           ) : null}
                         </div>
@@ -374,8 +362,8 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
         <TabsContent value="keys" className="space-y-4">
           {!canApprove ? (
             <ForbiddenPanel
-              title="Admin role required for API key management"
-              description="Only admin and superadmin users can list, issue, or revoke project API keys."
+              title="API Key 管理需要管理员权限"
+              description="仅 admin 与 superadmin 用户可以查看、签发或吊销项目 API Key。"
             />
           ) : (
             <>
@@ -385,7 +373,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                     htmlFor="keys-project-select"
                     className="font-mono text-[11px] text-ink-muted"
                   >
-                    PROJECT KEYS
+                    所属项目
                   </label>
                   <Select
                     id="keys-project-select"
@@ -409,7 +397,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                       className={cn("h-3 w-3", keysQuery.isFetching && "animate-spin")}
                       aria-hidden="true"
                     />
-                    <span>Refresh</span>
+                    <span>刷新</span>
                   </Button>
                 </div>
 
@@ -422,41 +410,41 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                   }}
                 >
                   <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>Issue API Key</span>
+                  <span>签发 API Key</span>
                 </Button>
               </div>
 
               <p className="text-[11px] text-ink-muted">
-                Note: Project-bound keys for <code className="font-mono">{effectiveKeySlug}</code>{" "}
-                are listed below. Global keys (
-                <code className="font-mono">default_project_id = null</code>) are shown once at
-                issuance.
+                注：下方列出绑定到 <code className="font-mono">{effectiveKeySlug}</code>{" "}
+                的项目密钥；全局密钥（
+                <code className="font-mono">default_project_id = null</code>
+                ）的明文仅在签发响应中展示一次。
               </p>
 
               {keysQuery.isLoading ? (
-                <LoadingPanel label={`Loading API keys for ${effectiveKeySlug}…`} />
+                <LoadingPanel label={`正在加载 ${effectiveKeySlug} 的 API Keys…`} />
               ) : keysQuery.error ? (
                 <ErrorPanel
-                  title="Failed to load API keys"
+                  title="API Key 列表加载失败"
                   error={keysQuery.error}
                   onRetry={() => void keysQuery.refetch()}
                 />
               ) : (keysQuery.data?.keys.length ?? 0) === 0 ? (
                 <EmptyPanel
-                  title={`No project-bound API keys for ${effectiveKeySlug}`}
-                  description="Issue a key scoped to mcp:read or admin:* permissions to connect an MCP client."
+                  title={`项目 ${effectiveKeySlug} 暂无绑定 API Key`}
+                  description="签发带有 mcp:read 或 admin:* Scope 的密钥后即可供 MCP 客户端接入。"
                 />
               ) : (
                 <div className="overflow-x-auto border border-hairline bg-surface">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-hairline bg-subtle/60 text-left font-mono text-[11px] text-ink-muted">
-                        <th className="px-3 py-2 font-medium">Name &amp; Prefix</th>
-                        <th className="px-3 py-2 font-medium">Owner</th>
-                        <th className="px-3 py-2 font-medium">Scopes</th>
-                        <th className="px-3 py-2 font-medium">Status</th>
-                        <th className="px-3 py-2 font-medium">Last Used</th>
-                        <th className="px-3 py-2 text-right font-medium">Actions</th>
+                        <th className="px-3 py-2 font-medium">名称与前缀</th>
+                        <th className="px-3 py-2 font-medium">所属用户</th>
+                        <th className="px-3 py-2 font-medium">Scopes 权限</th>
+                        <th className="px-3 py-2 font-medium">状态</th>
+                        <th className="px-3 py-2 font-medium">最近使用</th>
+                        <th className="px-3 py-2 text-right font-medium">操作</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-hairline">
@@ -488,18 +476,18 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                             </td>
                             <td className="px-3 py-2.5">
                               {isRevoked ? (
-                                <Badge variant="removed">REVOKED</Badge>
+                                <Badge variant="removed">已吊销</Badge>
                               ) : isExpired ? (
-                                <Badge variant="dashed">EXPIRED</Badge>
+                                <Badge variant="dashed">已过期</Badge>
                               ) : (
-                                <Badge variant="added">ACTIVE</Badge>
+                                <Badge variant="added">有效</Badge>
                               )}
                             </td>
                             <td
                               title={formatTimestamp(k.last_used_at)}
                               className="px-3 py-2.5 mono-num text-ink-secondary"
                             >
-                              {k.last_used_at ? formatRelativeTime(k.last_used_at) : "Never"}
+                              {k.last_used_at ? formatRelativeTime(k.last_used_at) : "从未使用"}
                             </td>
                             <td className="px-3 py-2.5 text-right">
                               {!isRevoked ? (
@@ -509,7 +497,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                                   onClick={() => setRevokeTarget(k)}
                                 >
                                   <ShieldOff className="h-3 w-3" aria-hidden="true" />
-                                  <span>Revoke</span>
+                                  <span>吊销</span>
                                 </Button>
                               ) : (
                                 <span className="mono-num text-[11px] text-ink-muted">
@@ -531,15 +519,15 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
         <TabsContent value="users" className="space-y-4">
           {!canPlatform ? (
             <ForbiddenPanel
-              title="Superadmin role required for user management"
-              description="Listing or creating registry users requires a superadmin account (admin:platform level)."
+              title="用户管理需要超级管理员权限"
+              description="查看或创建平台用户需要 superadmin 角色（对应 admin:platform 能力）。"
             />
           ) : (
             <>
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs text-ink-secondary">
-                  Human workbench accounts. Only <code className="font-mono">superadmin</code> and{" "}
-                  <code className="font-mono">admin</code> roles may approve revisions.
+                  人类工作台账号管理。仅 <code className="font-mono">superadmin</code> 与{" "}
+                  <code className="font-mono">admin</code> 角色拥有修订审批权。
                 </p>
                 <Button
                   size="sm"
@@ -549,15 +537,15 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                   }}
                 >
                   <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>Create User</span>
+                  <span>创建用户</span>
                 </Button>
               </div>
 
               {usersQuery.isLoading ? (
-                <LoadingPanel label="Loading registry users…" />
+                <LoadingPanel label="正在加载用户列表…" />
               ) : usersQuery.error ? (
                 <ErrorPanel
-                  title="Failed to load users"
+                  title="用户列表加载失败"
                   error={usersQuery.error}
                   onRetry={() => void usersQuery.refetch()}
                 />
@@ -566,11 +554,11 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-hairline bg-subtle/60 text-left font-mono text-[11px] text-ink-muted">
-                        <th className="px-3 py-2 font-medium">Username</th>
-                        <th className="px-3 py-2 font-medium">Display Name</th>
-                        <th className="px-3 py-2 font-medium">Role</th>
-                        <th className="px-3 py-2 text-right font-medium">Active Keys</th>
-                        <th className="px-3 py-2 text-right font-medium">Created</th>
+                        <th className="px-3 py-2 font-medium">用户名</th>
+                        <th className="px-3 py-2 font-medium">显示名称</th>
+                        <th className="px-3 py-2 font-medium">角色</th>
+                        <th className="px-3 py-2 text-right font-medium">有效密钥数</th>
+                        <th className="px-3 py-2 text-right font-medium">创建时间</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-hairline">
@@ -619,14 +607,13 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
         </TabsContent>
       </Tabs>
 
-      {/* Create Project Dialog */}
+      {/* 新建项目弹窗 */}
       <Dialog open={createProjectOpen} onOpenChange={setCreateProjectOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Project</DialogTitle>
+            <DialogTitle>新建项目</DialogTitle>
             <DialogDescription>
-              Projects have isolated file snapshots, active revision pointers, and API key
-              boundaries.
+              每个项目拥有相互隔离的文件快照、Active Revision 指针与 API Key 边界。
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateProject} className="mt-3 space-y-3">
@@ -638,7 +625,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
 
             <div className="space-y-1">
               <label htmlFor="new-proj-slug" className="block text-xs font-medium text-ink">
-                Slug
+                项目 Slug
               </label>
               <Input
                 id="new-proj-slug"
@@ -652,33 +639,33 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
 
             <div className="space-y-1">
               <label htmlFor="new-proj-name" className="block text-xs font-medium text-ink">
-                Name
+                项目名称
               </label>
               <Input
                 id="new-proj-name"
                 value={newProjName}
                 onChange={(e) => setNewProjName(e.target.value)}
-                placeholder="Platform Core"
+                placeholder="核心平台工作区"
                 required
               />
             </div>
 
             <div className="space-y-1">
               <label htmlFor="new-proj-desc" className="block text-xs font-medium text-ink">
-                Description
+                描述（可选）
               </label>
               <Textarea
                 id="new-proj-desc"
                 value={newProjDesc}
                 onChange={(e) => setNewProjDesc(e.target.value)}
                 rows={2}
-                placeholder="Shared skills and instructions…"
+                placeholder="共享 Skills 与团队协作规范…"
               />
             </div>
 
             <div className="space-y-1">
               <label htmlFor="new-proj-budget" className="block text-xs font-medium text-ink">
-                Token Budget (<code className="font-mono">o200k_base</code>)
+                Token 预算（<code className="font-mono">o200k_base</code>）
               </label>
               <Input
                 id="new-proj-budget"
@@ -698,23 +685,23 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                 onClick={() => setCreateProjectOpen(false)}
                 disabled={projSaving}
               >
-                Cancel
+                取消
               </Button>
               <Button type="submit" size="sm" disabled={projSaving}>
-                {projSaving ? "Creating…" : "Create Project"}
+                {projSaving ? "正在创建…" : "创建项目"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Issue API Key Dialog */}
+      {/* 签发 API Key 弹窗 */}
       <Dialog open={issueKeyOpen} onOpenChange={setIssueKeyOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Issue API Key ({effectiveKeySlug})</DialogTitle>
+            <DialogTitle>签发 API Key（{effectiveKeySlug}）</DialogTitle>
             <DialogDescription>
-              The plaintext token is displayed once upon issuance and cannot be recovered afterward.
+              明文密钥仅在签发时展示一次，系统仅保存 SHA-256 哈希，后续无法再次查看。
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleIssueKey} className="mt-3 space-y-3">
@@ -726,7 +713,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
 
             <div className="space-y-1">
               <label htmlFor="issue-key-name" className="block text-xs font-medium text-ink">
-                Key Label
+                密钥标签名称
               </label>
               <Input
                 id="issue-key-name"
@@ -738,7 +725,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
             </div>
 
             <div className="space-y-1.5">
-              <span className="block text-xs font-medium text-ink">Scopes</span>
+              <span className="block text-xs font-medium text-ink">授予 Scopes</span>
               <div className="grid grid-cols-2 gap-2">
                 {ALL_SCOPES.map((scope) => {
                   const locked = scope === "admin:platform" && !canPlatform;
@@ -775,14 +762,14 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                     onChange={(e) => setKeyGlobal(e.target.checked)}
                   />
                   <span>
-                    Issue as global multi-project key (not bound to{" "}
-                    <code className="font-mono">{effectiveKeySlug}</code>)
+                    签发为全局多项目密钥（不绑定到{" "}
+                    <code className="font-mono">{effectiveKeySlug}</code>）
                   </span>
                 </label>
 
                 <div className="space-y-1">
                   <label htmlFor="issue-key-user" className="block text-xs font-medium text-ink">
-                    Assign to User (optional)
+                    归属用户（可选）
                   </label>
                   <Select
                     id="issue-key-user"
@@ -790,7 +777,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                     onChange={(e) => setKeyUserId(e.target.value)}
                     className="w-full font-mono"
                   >
-                    <option value="">Current signed-in user</option>
+                    <option value="">当前登录用户</option>
                     {(usersQuery.data?.users ?? []).map((u) => (
                       <option key={u.id} value={u.id}>
                         {u.username} ({u.role})
@@ -808,17 +795,17 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                 onClick={() => setIssueKeyOpen(false)}
                 disabled={keySaving}
               >
-                Cancel
+                取消
               </Button>
               <Button type="submit" size="sm" disabled={keySaving}>
-                {keySaving ? "Issuing…" : "Issue API Key"}
+                {keySaving ? "正在签发…" : "确认签发"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* One-Time Plaintext Secret Reveal Dialog */}
+      {/* 一次性明文密钥展示弹窗 */}
       <Dialog
         open={Boolean(issuedSecret)}
         onOpenChange={(open) => {
@@ -830,10 +817,9 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>API Key Issued — Save Plaintext Now</DialogTitle>
+            <DialogTitle>API Key 已签发 — 请立即妥善保存明文</DialogTitle>
             <DialogDescription>
-              {issuedSecret?.warning ??
-                "This plaintext key is shown once and cannot be retrieved again."}
+              {issuedSecret?.warning ?? "该明文密钥仅完整展示这一次，关闭后无法再次找回。"}
             </DialogDescription>
           </DialogHeader>
 
@@ -842,16 +828,16 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
               <div className="flex items-start gap-2 border border-amber-400 bg-amber-50 px-3 py-2 text-xs text-amber-950">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>
-                  Store this Bearer token securely (e.g.,{" "}
-                  <code className="font-mono">AGENTRY_API_KEY</code>). Closing this window clears it
-                  from memory.
+                  请立即复制并保存该 Bearer Token（例如写入{" "}
+                  <code className="font-mono">AGENTRY_API_KEY</code>
+                  ）。关闭弹窗后明文将从页面内存清除。
                 </span>
               </div>
 
               <div className="border border-zinc-950 bg-zinc-950 text-zinc-50 p-3 rounded-sm space-y-2">
                 <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400">
                   <span>{issuedSecret.name}</span>
-                  <span>{issuedSecret.is_global ? "GLOBAL" : issuedSecret.project}</span>
+                  <span>{issuedSecret.is_global ? "全局密钥" : issuedSecret.project}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <code className="font-mono text-xs break-all select-all">
@@ -861,12 +847,12 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                     {copiedSecret ? (
                       <>
                         <Check className="h-3 w-3 text-emerald-700" aria-hidden="true" />
-                        <span>Copied</span>
+                        <span>已复制</span>
                       </>
                     ) : (
                       <>
                         <Copy className="h-3 w-3" aria-hidden="true" />
-                        <span>Copy</span>
+                        <span>复制</span>
                       </>
                     )}
                   </Button>
@@ -883,42 +869,42 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                 setCopiedSecret(false);
               }}
             >
-              I have stored this key
+              我已保存此密钥
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Revoke API Key Confirmation */}
+      {/* 吊销 API Key 确认弹窗 */}
       <ConfirmDialog
         open={Boolean(revokeTarget)}
         onOpenChange={(open) => {
           if (!open) setRevokeTarget(null);
         }}
-        title="Revoke API key?"
-        description="Any MCP client using this key will immediately receive 401 UNAUTHENTICATED on /mcp and /admin/mcp."
-        confirmLabel="Revoke Key"
+        title="确认吊销此 API Key？"
+        description="吊销后立即生效，任何使用该密钥的 /mcp 和 /admin/mcp 调用都将返回 401 UNAUTHENTICATED。"
+        confirmLabel="确认吊销"
         variant="destructive"
         pending={revoking}
         onConfirm={() => void handleRevokeKey()}
         details={
           revokeTarget ? (
             <div className="border border-hairline bg-paper p-3 text-xs font-mono space-y-1">
-              <div>Name: {revokeTarget.name}</div>
-              <div>Prefix: mreg_{revokeTarget.key_prefix}_…</div>
-              <div>Scopes: {revokeTarget.scopes.join(", ")}</div>
+              <div>名称：{revokeTarget.name}</div>
+              <div>前缀：mreg_{revokeTarget.key_prefix}_…</div>
+              <div>Scopes：{revokeTarget.scopes.join(", ")}</div>
             </div>
           ) : null
         }
       />
 
-      {/* Create User Dialog */}
+      {/* 创建用户弹窗 */}
       <Dialog open={createUserOpen} onOpenChange={setCreateUserOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create Registry User</DialogTitle>
+            <DialogTitle>创建工作台用户</DialogTitle>
             <DialogDescription>
-              Creates a human account with Argon2id password hashing.
+              创建用于人类登录 Web 工作台的账户，密码在服务端使用 Argon2id 哈希存储。
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateUser} className="mt-3 space-y-3">
@@ -930,7 +916,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
 
             <div className="space-y-1">
               <label htmlFor="new-user-username" className="block text-xs font-medium text-ink">
-                Username
+                用户名
               </label>
               <Input
                 id="new-user-username"
@@ -945,7 +931,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
 
             <div className="space-y-1">
               <label htmlFor="new-user-display" className="block text-xs font-medium text-ink">
-                Display Name
+                显示名称
               </label>
               <Input
                 id="new-user-display"
@@ -957,7 +943,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
 
             <div className="space-y-1">
               <label htmlFor="new-user-password" className="block text-xs font-medium text-ink">
-                Password (min 8 chars)
+                密码（至少 8 位）
               </label>
               <Input
                 id="new-user-password"
@@ -972,7 +958,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
 
             <div className="space-y-1">
               <label htmlFor="new-user-role" className="block text-xs font-medium text-ink">
-                Role
+                角色
               </label>
               <Select
                 id="new-user-role"
@@ -980,9 +966,9 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                 onChange={(e) => setNewRole(e.target.value as UserRole)}
                 className="w-full font-mono"
               >
-                <option value="member">member (read-only web workbench)</option>
-                <option value="admin">admin (approve, reject, resolve, project keys)</option>
-                <option value="superadmin">superadmin (full platform &amp; user management)</option>
+                <option value="member">member（工作台只读浏览）</option>
+                <option value="admin">admin（审批、拒绝、冲突解决、项目管理与密钥管理）</option>
+                <option value="superadmin">superadmin（全平台治理与用户管理）</option>
               </Select>
             </div>
 
@@ -993,10 +979,10 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                 onClick={() => setCreateUserOpen(false)}
                 disabled={userSaving}
               >
-                Cancel
+                取消
               </Button>
               <Button type="submit" size="sm" disabled={userSaving}>
-                {userSaving ? "Creating…" : "Create User"}
+                {userSaving ? "正在创建…" : "创建用户"}
               </Button>
             </DialogFooter>
           </form>

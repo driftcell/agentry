@@ -39,17 +39,16 @@ export function DashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-hairline pb-3">
         <div>
           <h1 className="text-base font-semibold tracking-tight text-ink">
-            Registry Telemetry &amp; Review Feed
+            注册中心总览与调用动态
           </h1>
           <p className="mt-0.5 text-xs text-ink-secondary">
-            Active workspace token waterline, proposal stream, and MCP endpoint traffic over the
-            last 30 days.
+            各项目 Active Token 预算水位、最近 Commit 审查动态以及近 30 天 MCP 调用统计。
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <label htmlFor="dashboard-scope" className="font-mono text-[11px] text-ink-muted">
-            SCOPE
+            统计范围
           </label>
           <Select
             id="dashboard-scope"
@@ -57,7 +56,7 @@ export function DashboardPage() {
             onChange={(e) => setScopeSlug(e.target.value)}
             className="h-7 min-w-[160px] font-mono"
           >
-            <option value="">All projects ({projects.length})</option>
+            <option value="">全部项目 ({projects.length})</option>
             {projects.map((p) => (
               <option key={p.id} value={p.slug}>
                 {p.slug}
@@ -69,52 +68,48 @@ export function DashboardPage() {
             size="sm"
             onClick={() => void query.refetch()}
             disabled={query.isFetching}
-            aria-label="Refresh dashboard"
+            aria-label="刷新概览"
           >
             <RefreshCw
               className={cn("h-3.5 w-3.5", query.isFetching && "animate-spin")}
               aria-hidden="true"
             />
-            <span>Refresh</span>
+            <span>刷新</span>
           </Button>
         </div>
       </div>
 
       {query.isLoading ? (
-        <LoadingPanel label="Loading registry telemetry…" />
+        <LoadingPanel label="正在加载注册中心指标…" />
       ) : query.error ? (
         <ErrorPanel
-          title="Failed to load dashboard telemetry"
+          title="概览数据加载失败"
           error={query.error}
           onRetry={() => void query.refetch()}
         />
       ) : data ? (
         <>
           <section
-            aria-label="Key metrics"
+            aria-label="核心指标"
             className="grid grid-cols-2 lg:grid-cols-4 border border-hairline bg-surface divide-y lg:divide-y-0 divide-x divide-hairline"
           >
             <div className="px-4 py-3.5">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="font-mono text-[11px] uppercase tracking-wider text-ink-muted">
-                  Managed Projects
+                <span className="font-mono text-[11px] tracking-wider text-ink-muted">
+                  托管项目数
                 </span>
-                <span className="font-mono text-[11px] text-ink-muted">
-                  {data.scope ?? "global"}
-                </span>
+                <span className="font-mono text-[11px] text-ink-muted">{data.scope ?? "全部"}</span>
               </div>
               <p className="mono-num mt-1.5 text-2xl font-semibold text-ink">
                 {formatTokens(data.metrics.projects)}
               </p>
-              <p className="mt-1 text-[11px] text-ink-secondary">
-                Isolated active revision pointers
-              </p>
+              <p className="mt-1 text-[11px] text-ink-secondary">独立隔离的 Active Revision 指针</p>
             </div>
 
             <div className="px-4 py-3.5">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="font-mono text-[11px] uppercase tracking-wider text-ink-muted">
-                  Active Skills
+                <span className="font-mono text-[11px] tracking-wider text-ink-muted">
+                  Active Skills 总数
                 </span>
                 <span className="font-mono text-[11px] text-ink-muted">SKILL.md</span>
               </div>
@@ -122,14 +117,14 @@ export function DashboardPage() {
                 {formatTokens(data.metrics.active_skills)}
               </p>
               <p className="mt-1 text-[11px] text-ink-secondary">
-                Exposed via <code className="text-[11px]">skills/list</code>
+                通过 <code className="text-[11px]">skills/list</code> 对外暴露
               </p>
             </div>
 
             <div className="px-4 py-3.5">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="font-mono text-[11px] uppercase tracking-wider text-ink-muted">
-                  Token Budget
+                <span className="font-mono text-[11px] tracking-wider text-ink-muted">
+                  整库 Token 预算水位
                 </span>
                 <span className="mono-num text-[11px] font-medium text-ink">{budgetPct}%</span>
               </div>
@@ -146,7 +141,7 @@ export function DashboardPage() {
                 aria-valuenow={budgetPct}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-label="Token budget waterline"
+                aria-label="Token 预算使用率"
               >
                 <div
                   className={cn(
@@ -164,45 +159,43 @@ export function DashboardPage() {
 
             <div className="px-4 py-3.5">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="font-mono text-[11px] uppercase tracking-wider text-ink-muted">
-                  Pending Reviews
+                <span className="font-mono text-[11px] tracking-wider text-ink-muted">
+                  待审批 Revisions
                 </span>
                 <Link
                   to="/review"
                   className="inline-flex items-center gap-0.5 font-mono text-[11px] text-ink underline underline-offset-2 hover:text-ink-secondary"
                 >
-                  Open queue
+                  前往处理
                   <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
                 </Link>
               </div>
               <p className="mono-num mt-1.5 text-2xl font-semibold text-ink">
                 {formatTokens(data.metrics.pending_reviews)}
               </p>
-              <p className="mt-1 text-[11px] text-ink-secondary">
-                Pending approval or conflict resolution
-              </p>
+              <p className="mt-1 text-[11px] text-ink-secondary">等待人工审批或三方冲突合并</p>
             </div>
           </section>
 
           <div className="grid grid-cols-1 xl:grid-cols-12 border border-hairline bg-surface divide-y xl:divide-y-0 xl:divide-x divide-hairline">
-            <section aria-label="Recent revision activity" className="xl:col-span-7 flex flex-col">
+            <section aria-label="最近 Commit 审查动态流" className="xl:col-span-7 flex flex-col">
               <div className="flex items-center justify-between border-b border-hairline px-4 py-2.5 bg-subtle/60">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-ink font-mono">
-                  Recent Revision Activity
+                <h2 className="text-xs font-semibold tracking-wider text-ink font-mono">
+                  最近 Commit 审查动态
                 </h2>
                 <Link
                   to="/review"
                   className="text-xs text-ink-secondary hover:text-ink underline underline-offset-2"
                 >
-                  View all
+                  查看全部
                 </Link>
               </div>
 
               {data.recent.length === 0 ? (
                 <div className="p-4">
                   <EmptyPanel
-                    title="No revisions recorded"
-                    description="Proposals submitted via /admin/mcp or seeded workspaces will appear here."
+                    title="暂无修订记录"
+                    description="通过 /admin/mcp 提交的提案或初始化项目动态会显示在这里。"
                   />
                 </div>
               ) : (
@@ -244,17 +237,17 @@ export function DashboardPage() {
                           {firstLine(row.commit_message)}
                         </Link>
                         <span className="mono-num shrink-0 text-[11px] text-ink-muted">
-                          {formatTokens(row.total_tokens)} total
+                          总计 {formatTokens(row.total_tokens)} tok
                         </span>
                       </div>
 
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-secondary">
                         <span>
-                          Author: <code className="text-ink">{row.author}</code>
+                          提交者：<code className="text-ink">{row.author}</code>
                         </span>
                         {row.reviewer ? (
                           <span>
-                            Reviewer: <code className="text-ink">{row.reviewer}</code>
+                            审查员：<code className="text-ink">{row.reviewer}</code>
                           </span>
                         ) : null}
                         {row.comment ? (
@@ -269,28 +262,28 @@ export function DashboardPage() {
               )}
             </section>
 
-            <section aria-label="MCP call statistics" className="xl:col-span-5 flex flex-col">
+            <section aria-label="API Key 调用统计" className="xl:col-span-5 flex flex-col">
               <div className="border-b border-hairline px-4 py-2.5 bg-subtle/60">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-ink font-mono">
-                  MCP Call Statistics (30d)
+                <h2 className="text-xs font-semibold tracking-wider text-ink font-mono">
+                  API Key 与端点调用统计（近 30 天）
                 </h2>
               </div>
 
               <div className="divide-y divide-hairline">
                 <div className="p-4">
-                  <h3 className="font-mono text-[11px] uppercase tracking-wider text-ink-muted mb-2">
-                    Endpoints
+                  <h3 className="font-mono text-[11px] tracking-wider text-ink-muted mb-2">
+                    入口分布
                   </h3>
                   {data.stats.endpoints.length === 0 ? (
-                    <p className="text-xs text-ink-muted">No MCP requests recorded yet.</p>
+                    <p className="text-xs text-ink-muted">暂无 MCP 调用记录。</p>
                   ) : (
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-hairline text-left font-mono text-[11px] text-ink-muted">
-                          <th className="py-1 font-medium">Endpoint</th>
-                          <th className="py-1 text-right font-medium">Calls</th>
-                          <th className="py-1 text-right font-medium">Err</th>
-                          <th className="py-1 text-right font-medium">Avg</th>
+                          <th className="py-1 font-medium">入口</th>
+                          <th className="py-1 text-right font-medium">调用</th>
+                          <th className="py-1 text-right font-medium">错误</th>
+                          <th className="py-1 text-right font-medium">平均耗时</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-hairline">
@@ -317,20 +310,20 @@ export function DashboardPage() {
                 </div>
 
                 <div className="p-4">
-                  <h3 className="font-mono text-[11px] uppercase tracking-wider text-ink-muted mb-2">
-                    API Keys
+                  <h3 className="font-mono text-[11px] tracking-wider text-ink-muted mb-2">
+                    API Key 活跃度
                   </h3>
                   {data.stats.keys.length === 0 ? (
-                    <p className="text-xs text-ink-muted">No API key traffic recorded yet.</p>
+                    <p className="text-xs text-ink-muted">暂无 API Key 调用记录。</p>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="border-b border-hairline text-left font-mono text-[11px] text-ink-muted">
-                            <th className="py-1 font-medium">Key</th>
-                            <th className="py-1 text-right font-medium">Calls</th>
-                            <th className="py-1 text-right font-medium">Err</th>
-                            <th className="py-1 text-right font-medium">Last Seen</th>
+                            <th className="py-1 font-medium">密钥</th>
+                            <th className="py-1 text-right font-medium">调用</th>
+                            <th className="py-1 text-right font-medium">错误</th>
+                            <th className="py-1 text-right font-medium">最近调用</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-hairline">
@@ -338,7 +331,7 @@ export function DashboardPage() {
                             <tr key={k.api_key_id ?? `anon-${idx}`}>
                               <td className="py-1.5">
                                 <div className="font-medium text-ink">
-                                  {k.key_name ?? "unauthenticated"}
+                                  {k.key_name ?? "未认证请求"}
                                 </div>
                                 {k.key_prefix ? (
                                   <div className="font-mono text-[11px] text-ink-muted">
@@ -369,18 +362,18 @@ export function DashboardPage() {
                 </div>
 
                 <div className="p-4">
-                  <h3 className="font-mono text-[11px] uppercase tracking-wider text-ink-muted mb-2">
-                    Top MCP Methods
+                  <h3 className="font-mono text-[11px] tracking-wider text-ink-muted mb-2">
+                    高频方法 / Tool
                   </h3>
                   {data.stats.methods.length === 0 ? (
-                    <p className="text-xs text-ink-muted">No method calls recorded yet.</p>
+                    <p className="text-xs text-ink-muted">暂无方法调用记录。</p>
                   ) : (
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-hairline text-left font-mono text-[11px] text-ink-muted">
-                          <th className="py-1 font-medium">Method / Tool</th>
-                          <th className="py-1 text-right font-medium">Calls</th>
-                          <th className="py-1 text-right font-medium">Avg</th>
+                          <th className="py-1 font-medium">方法 / Tool</th>
+                          <th className="py-1 text-right font-medium">调用</th>
+                          <th className="py-1 text-right font-medium">平均耗时</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-hairline">

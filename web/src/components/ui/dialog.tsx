@@ -43,7 +43,7 @@ export function DialogContent({ className, children, ...props }: BaseDialog.Popu
       >
         {children}
         <BaseDialog.Close
-          aria-label="Close dialog"
+          aria-label="关闭对话框"
           className="absolute top-3.5 right-3.5 rounded-sm p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950 cursor-pointer"
         >
           <X className="h-4 w-4" aria-hidden="true" />

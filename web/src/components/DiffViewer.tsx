@@ -28,14 +28,14 @@ function SideSummary({ label, side }: { label: string; side: FileSideResponse | 
   if (!side || !side.sha256) {
     return (
       <div className="flex items-center gap-2 text-xs text-ink-muted font-mono">
-        <span className="uppercase text-[10px]">{label}:</span>
-        <span>(absent)</span>
+        <span className="text-[10px]">{label}：</span>
+        <span>（不存在）</span>
       </div>
     );
   }
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
-      <span className="uppercase text-[10px] text-ink-muted">{label}:</span>
+      <span className="text-[10px] text-ink-muted">{label}：</span>
       <CopyableHash value={side.sha256} />
       <span className="mono-num text-[11px] text-ink-secondary">
         {side.is_text && side.token_count !== null
@@ -140,8 +140,8 @@ export function DiffViewer({
           ].map(({ label, side }) => (
             <div key={label} className="border border-hairline bg-paper p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-mono text-xs font-semibold uppercase text-ink">{label}</span>
-                <Badge variant="muted">BINARY</Badge>
+                <span className="font-mono text-xs font-semibold text-ink">{label}</span>
+                <Badge variant="muted">二进制</Badge>
               </div>
               {side && side.sha256 ? (
                 <>
@@ -158,13 +158,13 @@ export function DiffViewer({
                         className="inline-flex items-center gap-1.5 rounded-sm border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-ink hover:bg-subtle no-underline"
                       >
                         <Download className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span>Download {label}</span>
+                        <span>下载 {label}</span>
                       </a>
                     </div>
                   ) : null}
                 </>
               ) : (
-                <p className="text-xs text-ink-muted">File not present on this side.</p>
+                <p className="text-xs text-ink-muted">该侧不包含此文件。</p>
               )}
             </div>
           ))}
@@ -186,31 +186,27 @@ export function DiffViewer({
         </div>
 
         <div className="mono-num flex items-center gap-2 text-xs">
-          <span className="text-emerald-800 font-medium">+{diff.additions} lines</span>
+          <span className="text-emerald-800 font-medium">+{diff.additions} 行</span>
           <span className="text-zinc-300">/</span>
-          <span className="text-red-800 font-medium">-{diff.deletions} lines</span>
+          <span className="text-red-800 font-medium">-{diff.deletions} 行</span>
         </div>
       </div>
 
       {diff.truncatedMatrix ? (
         <div className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-xs text-amber-950">
-          Large changed section exceeded interactive LCS matrix limit; displaying bounded
-          replacement diff.
+          变更区间过大，超出交互式 LCS 矩阵上限，已切换为有界替换差异视图。
         </div>
       ) : null}
 
       {bothAbsent ? (
         <div className="p-4">
-          <EmptyPanel
-            title="No content on either side"
-            description="This path is absent from both selected revision snapshots."
-          />
+          <EmptyPanel title="两侧均无内容" description="当前选定的两个版本快照中均不包含该路径。" />
         </div>
       ) : diff.isIdentical ? (
         <div className="space-y-3 p-4">
           <EmptyPanel
-            title="No differences between selected sides"
-            description={`${leftLabel} and ${rightLabel} share identical content for ${path}.`}
+            title="两侧内容无差异"
+            description={`${leftLabel} 与 ${rightLabel} 在文件 ${path} 上内容完全一致。`}
           />
         </div>
       ) : null}
@@ -246,7 +242,7 @@ export function DiffViewer({
                           className="inline-flex items-center gap-1.5 font-mono text-[11px] text-ink-secondary hover:text-ink cursor-pointer"
                         >
                           <Expand className="h-3 w-3" aria-hidden="true" />
-                          <span>Expand {formatTokens(block.count)} unchanged lines</span>
+                          <span>展开 {formatTokens(block.count)} 行未变更内容</span>
                         </button>
                       </td>
                     </tr>
@@ -259,13 +255,13 @@ export function DiffViewer({
               <thead>
                 <tr className="border-b border-hairline bg-subtle/60 font-mono text-[11px] text-ink-muted">
                   <th className="w-11 border-r border-hairline px-2 py-1 text-right font-medium">
-                    L
+                    旧行
                   </th>
                   <th className="w-1/2 border-r border-hairline px-3 py-1 text-left font-medium">
                     {leftLabel}
                   </th>
                   <th className="w-11 border-r border-hairline px-2 py-1 text-right font-medium">
-                    R
+                    新行
                   </th>
                   <th className="w-1/2 px-3 py-1 text-left font-medium">{rightLabel}</th>
                 </tr>
@@ -300,7 +296,7 @@ export function DiffViewer({
                             className="inline-flex items-center gap-1.5 font-mono text-[11px] text-ink-secondary hover:text-ink cursor-pointer"
                           >
                             <Expand className="h-3 w-3" aria-hidden="true" />
-                            <span>Expand {formatTokens(block.count)} unchanged lines</span>
+                            <span>展开 {formatTokens(block.count)} 行未变更内容</span>
                           </button>
                         </td>
                       </tr>

@@ -16,7 +16,7 @@ export function CopyableHash({
   prefix = "",
   length = 8,
   className,
-  label = "Copy digest",
+  label = "复制摘要",
 }: CopyableHashProps) {
   const [copied, setCopied] = useState(false);
 
@@ -48,8 +48,8 @@ export function CopyableHash({
       <button
         type="button"
         onClick={handleCopy}
-        title={copied ? "Copied" : `${label}: ${value}`}
-        aria-label={copied ? "Copied to clipboard" : `${label} ${value}`}
+        title={copied ? "已复制" : `${label}: ${value}`}
+        aria-label={copied ? "已复制到剪贴板" : `${label} ${value}`}
         className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-ink-muted hover:bg-subtle hover:text-ink cursor-pointer"
       >
         {copied ? (

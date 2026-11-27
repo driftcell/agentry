@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function LoadingPanel({
-  label = "Loading…",
+  label = "加载中…",
   className,
 }: {
   label?: string;
@@ -50,7 +50,7 @@ export function EmptyPanel({
 }
 
 export function ErrorPanel({
-  title = "Unable to load data",
+  title = "数据加载失败",
   error,
   onRetry,
   className,
@@ -60,7 +60,7 @@ export function ErrorPanel({
   onRetry?: () => void;
   className?: string;
 }) {
-  const message = error instanceof Error ? error.message : String(error ?? "Unknown error");
+  const message = error instanceof Error ? error.message : String(error ?? "未知错误");
   return (
     <div
       role="alert"
@@ -79,7 +79,7 @@ export function ErrorPanel({
       {onRetry ? (
         <Button variant="outline" size="xs" onClick={onRetry}>
           <RefreshCw className="h-3 w-3" aria-hidden="true" />
-          Retry
+          重试
         </Button>
       ) : null}
     </div>
@@ -87,7 +87,7 @@ export function ErrorPanel({
 }
 
 export function ForbiddenPanel({
-  title = "Insufficient permissions",
+  title = "权限不足",
   description,
 }: {
   title?: string;

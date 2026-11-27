@@ -20,26 +20,26 @@ const ENDPOINT_OPTIONS: ReadonlyArray<{
 }> = [
   {
     mode: "fixed-read",
-    label: "Fixed Read (/mcp)",
-    pathHint: "Uses key default_project_id or optional X-MCP-Project header",
+    label: "固定只读入口 (/mcp)",
+    pathHint: "自动读取 Key 绑定的默认项目，或附加 X-MCP-Project 请求头指定项目",
     adminOnly: false,
   },
   {
     mode: "slug-read",
-    label: "Project Slug Read (/mcp/projects/{slug})",
-    pathHint: "Mounts a specific project cleanly alongside others",
+    label: "项目路径只读 (/mcp/projects/{slug})",
+    pathHint: "可在同一客户端内按项目 Slug 并行挂载多个隔离项目",
     adminOnly: false,
   },
   {
     mode: "fixed-admin",
-    label: "Fixed Admin (/admin/mcp)",
-    pathHint: "Propose, resolve conflicts, activate approved revisions",
+    label: "固定管理入口 (/admin/mcp)",
+    pathHint: "用于上传暂存、提交修订提案、解决冲突及激活已批准修订",
     adminOnly: true,
   },
   {
     mode: "slug-admin",
-    label: "Project Slug Admin (/admin/mcp/projects/{slug})",
-    pathHint: "Admin endpoint pinned to a specific project slug",
+    label: "项目路径管理 (/admin/mcp/projects/{slug})",
+    pathHint: "固定指向单个项目的管理端 MCP 入口",
     adminOnly: true,
   },
 ];
@@ -68,12 +68,12 @@ function CopyBlock({ title, subtitle, code }: { title: string; subtitle: string;
           {copied ? (
             <>
               <Check className="h-3 w-3 text-emerald-700" aria-hidden="true" />
-              <span>Copied</span>
+              <span>已复制</span>
             </>
           ) : (
             <>
               <Copy className="h-3 w-3" aria-hidden="true" />
-              <span>Copy</span>
+              <span>一键复制</span>
             </>
           )}
         </Button>
@@ -125,22 +125,19 @@ export function ClientSetupHelper({ projects, defaultProjectSlug }: ClientSetupH
       <div className="border border-hairline bg-surface p-4 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-2 border-b border-hairline pb-3">
           <div>
-            <h2 className="text-sm font-semibold text-ink">MCP Client Configuration Generator</h2>
+            <h2 className="text-sm font-semibold text-ink">MCP 客户端接入配置生成器</h2>
             <p className="mt-0.5 text-xs text-ink-secondary">
-              Copy-ready snippets for Claude Code and OpenCode. Admin endpoints are locked unless
-              your selected key scopes permit them.
+              一键复制 Claude Code / OpenCode 配置，自动校对 Scopes
+              权限边界，不生成越权管理入口配置。
             </p>
           </div>
-          <Badge variant="muted">Env placeholder: AGENTRY_API_KEY</Badge>
+          <Badge variant="muted">环境变量占位：AGENTRY_API_KEY</Badge>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1.5">
-            <label
-              htmlFor="setup-project"
-              className="block font-mono text-[11px] uppercase text-ink-muted"
-            >
-              Target Project
+            <label htmlFor="setup-project" className="block font-mono text-[11px] text-ink-muted">
+              目标项目
             </label>
             <Select
               id="setup-project"
@@ -163,9 +160,9 @@ export function ClientSetupHelper({ projects, defaultProjectSlug }: ClientSetupH
           <div className="space-y-1.5">
             <label
               htmlFor="setup-server-name"
-              className="block font-mono text-[11px] uppercase text-ink-muted"
+              className="block font-mono text-[11px] text-ink-muted"
             >
-              Server Name (optional)
+              服务名称（可选）
             </label>
             <Input
               id="setup-server-name"
@@ -177,9 +174,7 @@ export function ClientSetupHelper({ projects, defaultProjectSlug }: ClientSetupH
           </div>
 
           <div className="space-y-1.5">
-            <span className="block font-mono text-[11px] uppercase text-ink-muted">
-              Key Scopes Held
-            </span>
+            <span className="block font-mono text-[11px] text-ink-muted">当前密钥 Scopes</span>
             <div className="flex flex-wrap gap-1.5 pt-0.5">
               {ALL_SCOPES.map((scope) => {
                 const checked = scopes.includes(scope);
@@ -205,9 +200,7 @@ export function ClientSetupHelper({ projects, defaultProjectSlug }: ClientSetupH
         </div>
 
         <div className="space-y-2">
-          <span className="block font-mono text-[11px] uppercase text-ink-muted">
-            Endpoint Shape
-          </span>
+          <span className="block font-mono text-[11px] text-ink-muted">接入入口形态</span>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             {ENDPOINT_OPTIONS.map((opt) => {
               const disabled = opt.adminOnly && !adminEnabled;
@@ -235,7 +228,7 @@ export function ClientSetupHelper({ projects, defaultProjectSlug }: ClientSetupH
                       selected ? "text-zinc-300" : "text-ink-muted",
                     )}
                   >
-                    {disabled ? "Requires an admin:* scope" : opt.pathHint}
+                    {disabled ? "需先勾选至少一个 admin:* Scope" : opt.pathHint}
                   </div>
                 </button>
               );
@@ -252,8 +245,8 @@ export function ClientSetupHelper({ projects, defaultProjectSlug }: ClientSetupH
               className="rounded-sm border-zinc-400"
             />
             <span>
-              Include <code className="font-mono">X-MCP-Project: {projectSlug}</code> header
-              (overrides key default project; omit if key is already project-bound)
+              附加 <code className="font-mono">X-MCP-Project: {projectSlug}</code> 请求头（覆盖 Key
+              默认项目；若密钥已绑定该项目可不勾选）
             </span>
           </label>
         ) : null}
@@ -272,29 +265,27 @@ export function ClientSetupHelper({ projects, defaultProjectSlug }: ClientSetupH
           <div className="flex flex-wrap items-center justify-between gap-2 border border-hairline bg-subtle/40 px-3 py-2 text-xs font-mono">
             <span className="flex items-center gap-1.5 text-ink">
               <Terminal className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>URL: {setup.url}</span>
+              <span>接入地址：{setup.url}</span>
             </span>
-            <span className="text-ink-muted">
-              Required scope: {setup.requiredScopes.join(" or ")}
-            </span>
+            <span className="text-ink-muted">所需权限：{setup.requiredScopes.join(" 或 ")}</span>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <CopyBlock
               title="Claude Code (.mcp.json)"
-              subtitle="Project-local or global MCP server config"
+              subtitle="项目级或全局 MCP 客户端配置"
               code={setup.claudeJson}
             />
             <CopyBlock
               title="OpenCode (opencode.json)"
-              subtitle="Remote Streamable HTTP MCP definition"
+              subtitle="Streamable HTTP 远程 MCP 配置"
               code={setup.opencodeJson}
             />
           </div>
 
           <CopyBlock
-            title="Claude Code CLI"
-            subtitle="Run in shell with AGENTRY_API_KEY exported"
+            title="Claude Code CLI 命令"
+            subtitle="在导出 AGENTRY_API_KEY 环境变量后直接执行"
             code={setup.claudeCli}
           />
         </div>

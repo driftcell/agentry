@@ -38,7 +38,7 @@ function RootLayout() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-paper flex items-center justify-center p-6">
-        <LoadingPanel label="Restoring workbench session…" className="max-w-sm w-full" />
+        <LoadingPanel label="正在恢复工作台会话…" className="max-w-sm w-full" />
       </div>
     );
   }
@@ -47,7 +47,7 @@ function RootLayout() {
     return (
       <div className="min-h-screen bg-paper flex items-center justify-center p-6">
         <ErrorPanel
-          title="Unable to verify session"
+          title="无法验证登录会话"
           error={error}
           onRetry={() => void refreshSession()}
           className="max-w-lg w-full"
@@ -103,14 +103,14 @@ const rootRoute = createRootRoute({
   component: RootLayout,
   notFoundComponent: () => (
     <EmptyPanel
-      title="Page not found"
-      description="The requested workbench route does not exist."
+      title="页面不存在"
+      description="未找到对应的工作台路由。"
       action={
         <Link
           to="/"
           className="inline-flex items-center rounded-sm border border-zinc-950 bg-zinc-950 px-3 py-1.5 text-xs font-medium text-zinc-50 no-underline"
         >
-          Back to Dashboard
+          返回概览
         </Link>
       }
     />

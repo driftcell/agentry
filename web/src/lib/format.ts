@@ -51,17 +51,17 @@ export function formatRelativeTime(iso: string | null | undefined, nowMs = Date.
   const time = new Date(iso).getTime();
   if (Number.isNaN(time)) return iso;
   const diffSec = Math.round((nowMs - time) / 1000);
-  if (diffSec < 60) return "just now";
+  if (diffSec < 60) return "刚刚";
   const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 60) return `${diffMin} 分钟前`;
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffHr < 24) return `${diffHr} 小时前`;
   const diffDays = Math.floor(diffHr / 24);
-  if (diffDays < 30) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${diffDays} 天前`;
   return formatTimestamp(iso).slice(0, 10);
 }
 
 export function firstLine(text: string): string {
   const line = text.split("\n")[0]?.trim() ?? "";
-  return line || "(empty commit message)";
+  return line || "（无提交说明）";
 }

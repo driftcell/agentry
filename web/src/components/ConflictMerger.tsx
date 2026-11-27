@@ -173,13 +173,11 @@ export function ConflictMerger({
     if (!canApprove || stale) return;
     const trimmedMessage = commitMessage.trim();
     if (!trimmedMessage) {
-      setSaveError("Commit message must not be empty.");
+      setSaveError("提交说明不能为空。");
       return;
     }
     if (!allConflictsReady) {
-      setSaveError(
-        "Resolve all conflicted files cleanly (no remaining <<<<<<<, =======, >>>>>>> markers) before saving.",
-      );
+      setSaveError("请先解决全部冲突文件（移除所有 <<<<<<<、=======、>>>>>>> 冲突标记）再保存。");
       return;
     }
 
@@ -199,7 +197,7 @@ export function ConflictMerger({
       if (err instanceof ApiError) {
         setSaveError(`${err.code}: ${err.message}`);
       } else {
-        setSaveError("Failed to save conflict resolution.");
+        setSaveError("保存冲突解决结果失败。");
       }
     } finally {
       setSaving(false);
@@ -207,11 +205,7 @@ export function ConflictMerger({
   };
 
   if (conflicts.length === 0) {
-    return (
-      <div className="p-4 text-xs text-ink-secondary">
-        No conflict records remain on this revision.
-      </div>
-    );
+    return <div className="p-4 text-xs text-ink-secondary">该修订当前没有待处理的冲突记录。</div>;
   }
 
   return (
@@ -221,12 +215,12 @@ export function ConflictMerger({
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-800" aria-hidden="true" />
           <div className="space-y-0.5">
             <p className="text-xs font-semibold">
-              Three-Way Merge Conflict ({resolvedCount} / {conflicts.length} files staged cleanly)
+              三方合并冲突（已就绪 {resolvedCount} / {conflicts.length} 个文件）
             </p>
             <p className="text-xs text-amber-900">
-              Choose Current (Active), Incoming, or Both, or edit the merged buffer manually. Saving
-              transitions this revision back to{" "}
-              <code className="font-mono font-semibold">pending_review</code> for human approval.
+              可选择保留当前 (Active)、采纳传入 (Incoming)、保留双方
+              (Both)，或手动编辑合并结果。保存后修订将重新进入{" "}
+              <code className="font-mono font-semibold">pending_review</code> 状态等待人工审批。
             </p>
           </div>
         </div>
@@ -234,27 +228,26 @@ export function ConflictMerger({
 
       {!canApprove ? (
         <ForbiddenPanel
-          title="Read-only conflict preview"
-          description="Only an admin or superadmin may submit conflict resolutions."
+          title="只读冲突预览"
+          description="仅 admin 或 superadmin 角色可以提交冲突解决结果。"
         />
       ) : stale ? (
         <div
           role="alert"
           className="border border-red-300 bg-red-50/70 px-4 py-3 text-xs text-red-950 space-y-1"
         >
-          <p className="font-semibold">Stale conflict revision (REVISION_STALE)</p>
+          <p className="font-semibold">冲突基线已过时（REVISION_STALE）</p>
           <p>
-            The project’s active revision changed after this conflict was created, so saving a
-            resolution is blocked to avoid reverting unrelated changes. Reject this revision above
-            and re-propose against the current active revision.
+            该冲突创建后项目的 Active Revision
+            已发生变更，直接覆盖可能导致其他更改被回滚。请在上方拒绝此修订，并基于最新激活版本重新提案。
           </p>
         </div>
       ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 border border-hairline bg-surface divide-y lg:divide-y-0 lg:divide-x divide-hairline">
-        <aside aria-label="Conflicted files" className="lg:col-span-3 p-3 space-y-2 bg-paper/50">
-          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-muted">
-            Conflicted Files ({conflicts.length})
+        <aside aria-label="冲突文件列表" className="lg:col-span-3 p-3 space-y-2 bg-paper/50">
+          <p className="font-mono text-[11px] tracking-wider text-ink-muted">
+            冲突文件 ({conflicts.length})
           </p>
           <ul className="space-y-1">
             {conflicts.map((c) => {
@@ -281,7 +274,7 @@ export function ConflictMerger({
                             "h-3.5 w-3.5 shrink-0",
                             isSelected ? "text-emerald-300" : "text-emerald-700",
                           )}
-                          aria-label="Staged cleanly"
+                          aria-label="已就绪"
                         />
                       ) : (
                         <FileWarning
@@ -289,7 +282,7 @@ export function ConflictMerger({
                             "h-3.5 w-3.5 shrink-0",
                             isSelected ? "text-amber-300" : "text-amber-700",
                           )}
-                          aria-label="Unresolved"
+                          aria-label="未解决"
                         />
                       )}
                     </div>
@@ -299,7 +292,7 @@ export function ConflictMerger({
                         isSelected ? "text-zinc-300" : "text-ink-muted",
                       )}
                     >
-                      {c.hunks} hunk{c.hunks === 1 ? "" : "s"} · lines {c.lines.join(", ")}
+                      {c.hunks} 处冲突 · 第 {c.lines.join(", ")} 行
                     </div>
                   </button>
                 </li>
@@ -310,10 +303,10 @@ export function ConflictMerger({
 
         <div className="lg:col-span-9 p-4 space-y-4 min-w-0">
           {isLoading ? (
-            <LoadingPanel label={`Loading 3-way conflict context for ${activePath}…`} />
+            <LoadingPanel label={`正在加载 ${activePath} 的三方对比上下文…`} />
           ) : loadError ? (
             <ErrorPanel
-              title={`Unable to load conflict sides for ${activePath}`}
+              title={`无法加载 ${activePath} 的冲突内容`}
               error={loadError}
               onRetry={() => {
                 void baseQuery?.refetch();
@@ -330,12 +323,12 @@ export function ConflictMerger({
                     {resolvedStatusMap[activePath] ? (
                       <Badge variant="added">
                         <Check className="h-3 w-3" aria-hidden="true" />
-                        <span>STAGED</span>
+                        <span>已就绪</span>
                       </Badge>
                     ) : (
                       <Badge variant="warning">
                         <AlertTriangle className="h-3 w-3" aria-hidden="true" />
-                        <span>NEEDS RESOLUTION</span>
+                        <span>待处理</span>
                       </Badge>
                     )}
                   </div>
@@ -349,13 +342,13 @@ export function ConflictMerger({
                 {!isBinaryConflict && canApprove ? (
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Button variant="outline" size="xs" onClick={() => applyAllChoice("current")}>
-                      Accept Current (Active)
+                      保留当前 (Active)
                     </Button>
                     <Button variant="outline" size="xs" onClick={() => applyAllChoice("incoming")}>
-                      Accept Incoming
+                      采纳传入 (Incoming)
                     </Button>
                     <Button variant="outline" size="xs" onClick={() => applyAllChoice("both")}>
-                      Accept Both
+                      保留双方 (Both)
                     </Button>
                   </div>
                 ) : null}
@@ -363,12 +356,12 @@ export function ConflictMerger({
 
               {isBinaryConflict ? (
                 <div className="border border-red-300 bg-red-50/70 p-4 text-xs text-red-950 space-y-2">
-                  <p className="font-semibold">Binary Conflict Detected</p>
+                  <p className="font-semibold">检测到二进制文件冲突</p>
                   <p>
-                    Binary blobs cannot be merged inline as UTF-8 text. Use the{" "}
-                    <code className="font-mono">resolve_conflict</code> tool via{" "}
-                    <code className="font-mono">/admin/mcp</code> with an OSS staging key to resolve
-                    binary conflicts.
+                    二进制文件无法以 UTF-8 文本形式在线合并。请通过{" "}
+                    <code className="font-mono">/admin/mcp</code> 的{" "}
+                    <code className="font-mono">resolve_conflict</code> 工具并指定 OSS
+                    暂存对象键来解决。
                   </p>
                 </div>
               ) : (
@@ -376,45 +369,45 @@ export function ConflictMerger({
                   <div className="grid grid-cols-1 md:grid-cols-3 border border-hairline divide-y md:divide-y-0 md:divide-x divide-hairline">
                     <div className="flex flex-col min-w-0">
                       <div className="flex items-center justify-between border-b border-hairline bg-subtle/60 px-3 py-1.5">
-                        <span className="font-mono text-[11px] font-semibold uppercase text-ink-secondary">
-                          Base
+                        <span className="font-mono text-[11px] font-semibold text-ink-secondary">
+                          Base（基线）
                         </span>
                         <CopyableHash value={activeConflict?.base_sha256} />
                       </div>
                       <pre className="p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-words max-h-56 overflow-y-auto text-ink-secondary">
-                        {baseText || "(absent in base)"}
+                        {baseText || "（Base 中不存在）"}
                       </pre>
                     </div>
 
                     <div className="flex flex-col min-w-0">
                       <div className="flex items-center justify-between border-b border-hairline bg-subtle/60 px-3 py-1.5">
-                        <span className="font-mono text-[11px] font-semibold uppercase text-ink">
-                          Current (Active)
+                        <span className="font-mono text-[11px] font-semibold text-ink">
+                          Current（当前 Active）
                         </span>
                         <CopyableHash value={activeConflict?.active_sha256} />
                       </div>
                       <pre className="p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-words max-h-56 overflow-y-auto text-ink">
-                        {activeText || "(deleted or absent in active)"}
+                        {activeText || "（当前 Active 已删除或不存在）"}
                       </pre>
                     </div>
 
                     <div className="flex flex-col min-w-0">
                       <div className="flex items-center justify-between border-b border-hairline bg-subtle/60 px-3 py-1.5">
-                        <span className="font-mono text-[11px] font-semibold uppercase text-ink">
-                          Incoming
+                        <span className="font-mono text-[11px] font-semibold text-ink">
+                          Incoming（传入提案）
                         </span>
                         <CopyableHash value={activeConflict?.incoming_sha256} />
                       </div>
                       <pre className="p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap break-words max-h-56 overflow-y-auto text-ink">
-                        {cleanIncomingText || "(deleted or absent in incoming)"}
+                        {cleanIncomingText || "（传入提案已删除或不存在）"}
                       </pre>
                     </div>
                   </div>
 
                   {hunkSegments.length > 0 && canApprove ? (
                     <div className="space-y-2">
-                      <p className="font-mono text-[11px] uppercase tracking-wider text-ink-muted">
-                        Hunk-by-Hunk Controls ({hunkSegments.length})
+                      <p className="font-mono text-[11px] tracking-wider text-ink-muted">
+                        逐块选择 ({hunkSegments.length})
                       </p>
                       <div className="space-y-2">
                         {hunkSegments.map((hunk) => {
@@ -426,14 +419,14 @@ export function ConflictMerger({
                             >
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <span className="mono-num text-xs font-semibold text-ink">
-                                  Hunk #{hunk.index} (line {hunk.startLine})
+                                  冲突块 #{hunk.index}（第 {hunk.startLine} 行）
                                 </span>
                                 <div className="flex flex-wrap items-center gap-1.5">
                                   {(
                                     [
-                                      { id: "current", label: "Accept Current" },
-                                      { id: "incoming", label: "Accept Incoming" },
-                                      { id: "both", label: "Accept Both" },
+                                      { id: "current", label: "保留当前" },
+                                      { id: "incoming", label: "采纳传入" },
+                                      { id: "both", label: "保留双方" },
                                     ] as const
                                   ).map((btn) => (
                                     <Button
@@ -449,10 +442,10 @@ export function ConflictMerger({
                               </div>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 font-mono text-[11px]">
                                 <pre className="border border-hairline bg-white p-2 whitespace-pre-wrap break-words">
-                                  {hunk.ours || "(empty)"}
+                                  {hunk.ours || "（空）"}
                                 </pre>
                                 <pre className="border border-hairline bg-white p-2 whitespace-pre-wrap break-words">
-                                  {hunk.theirs || "(empty)"}
+                                  {hunk.theirs || "（空）"}
                                 </pre>
                               </div>
                             </div>
@@ -466,23 +459,22 @@ export function ConflictMerger({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <label
                         htmlFor="conflict-editor"
-                        className="font-mono text-[11px] uppercase tracking-wider text-ink-muted"
+                        className="font-mono text-[11px] tracking-wider text-ink-muted"
                       >
-                        Merged Output Editor ({formatTokens(currentBuffer.split(/\r?\n/).length)}{" "}
-                        lines)
+                        合并输出编辑器（{formatTokens(currentBuffer.split(/\r?\n/).length)} 行）
                       </label>
                       {bufferHasMarkers ? (
                         <span className="font-mono text-[11px] font-semibold text-amber-800">
-                          Contains unresolved &lt;&lt;&lt;&lt;&lt;&lt;&lt; / ======= /
-                          &gt;&gt;&gt;&gt;&gt;&gt;&gt; markers
+                          仍包含未解决的 &lt;&lt;&lt;&lt;&lt;&lt;&lt; / ======= /
+                          &gt;&gt;&gt;&gt;&gt;&gt;&gt; 标记
                         </span>
                       ) : activePath in drafts ? (
                         <span className="font-mono text-[11px] text-emerald-800">
-                          Staged cleanly for resolution
+                          已就绪，可提交保存
                         </span>
                       ) : (
                         <span className="font-mono text-[11px] text-amber-800">
-                          Choose Current, Incoming, Both, or edit to stage
+                          请点击上方策略按钮或直接编辑后再保存
                         </span>
                       )}
                     </div>
@@ -503,9 +495,9 @@ export function ConflictMerger({
                 <div className="space-y-1.5">
                   <label
                     htmlFor="conflict-commit-message"
-                    className="block font-mono text-[11px] uppercase tracking-wider text-ink-muted"
+                    className="block font-mono text-[11px] tracking-wider text-ink-muted"
                   >
-                    Commit Message
+                    提交说明 (Commit Message)
                   </label>
                   <Textarea
                     id="conflict-commit-message"
@@ -529,13 +521,13 @@ export function ConflictMerger({
                 {canApprove ? (
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className="mono-num text-xs text-ink-secondary">
-                      {resolvedCount} of {conflicts.length} conflict files clean
+                      {resolvedCount} / {conflicts.length} 个冲突文件已处理干净
                     </span>
                     <Button
                       onClick={() => void handleSaveResolution()}
                       disabled={!allConflictsReady || saving || stale}
                     >
-                      {saving ? "Saving Resolution…" : "Save Resolution & Return to Review"}
+                      {saving ? "正在保存…" : "保存解决结果并回到待审批"}
                     </Button>
                   </div>
                 ) : null}
