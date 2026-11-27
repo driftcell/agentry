@@ -83,7 +83,7 @@
 
 - [ ] 表驱动测试覆盖四组路由、每种项目来源及优先级组合。
 - [x] 跨项目 Key、吊销 Key、缺失 Scope、路径越权和非法 `project_slug` 均被拒绝。
-- [ ] 同一 Tool 在固定路由与 Slug 路由下获得一致、可审计的 `ProjectContext`。
+- [x] 同一 Tool 在固定路由与 Slug 路由下获得一致、可审计的 `ProjectContext`。
 
 ## M3　Revision 领域核心
 
@@ -101,9 +101,9 @@
 **出口验收**
 
 - [x] 单元测试覆盖所有合法/非法状态迁移和 Base/Active/Incoming 三方组合。
-- [ ] 两个并发激活请求不会造成 Project 指针与 Revision 状态不一致。
+- [x] 两个并发激活请求不会造成 Project 指针与 Revision 状态不一致。
 - [x] `pending_review`、`rejected`、`conflict` Revision 均不能绕过 Web 审批被激活。
-- [ ] MCP 与 Web 获取到完全一致的 Diff、冲突和 Token 统计。
+- [x] MCP 与 Web 获取到完全一致的 Diff、冲突和 Token 统计。
 
 ## M4　只读 `/mcp`
 
@@ -116,14 +116,14 @@
 - [x] **T4.5　实现 `read_slice`。** 支持 `path`、`mode: outline | section | full`、可选 `section` 与 `max_tokens`；Outline 只含 H1—H3 和各节 Token 数，Section 只返回指定章节，Full 遵守 Token 上限并明确截断结果。
 - [x] **T4.6　实现 `pull_bundle_url`。** 支持 `paths[]`、`local_target_dir`、`format: tar_gz | single`，生成最小权限、短时效的 Presigned GET URL，以及经过 Shell 安全转义的下载/解包命令。
 - [x] **T4.7　收紧响应 Schema。** 所有结构体使用紧凑字段；列表游标、空结果、缺失章节、过大响应和 OSS 重定向均有稳定契约，不返回内部数据库行或冗余对象图。
-- [ ] **T4.8　建立 MCP 合约与 Token 回归测试。** 固定典型响应 Snapshot，验证字段、URI、Digest、Token 数和分页稳定性；发现响应体积异常增长时使测试失败。
+- [x] **T4.8　建立 MCP 合约与 Token 回归测试。** 固定典型响应 Snapshot，验证字段、URI、Digest、Token 数和分页稳定性；发现响应体积异常增长时使测试失败。
 
 **出口验收**
 
-- [ ] 客户端只配置固定 `/mcp`，即可由项目专属 Key 自动隔离上下文。
-- [ ] 同一跨项目管理员工具上下文可通过 `/mcp/projects/{slug}` 挂载多个项目，且互不串读。
-- [ ] 大 `CLAUDE.md` 可通过 Outline → Section 按需读取，无需先拉取全文。
-- [ ] Bundle 命令只作为客户端可选择执行的文本返回，服务端不执行该命令。
+- [x] 客户端只配置固定 `/mcp`，即可由项目专属 Key 自动隔离上下文。
+- [x] 同一跨项目管理员工具上下文可通过 `/mcp/projects/{slug}` 挂载多个项目，且互不串读。
+- [x] 大 `CLAUDE.md` 可通过 Outline → Section 按需读取，无需先拉取全文。
+- [x] Bundle 命令只作为客户端可选择执行的文本返回，服务端不执行该命令。
 
 ## M5　管理 `/admin/mcp`
 

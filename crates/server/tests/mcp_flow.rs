@@ -121,6 +121,39 @@ async fn read_and_admin_mcp_share_the_same_revision_domain() {
     assert_eq!(proposal["status"], "pending_review");
     assert!(proposal["token_added"].as_i64().unwrap() > 0);
 
+    // The web and MCP views must agree on status, token diff and staleness.
+    let web_detail = app
+        .web(
+            &cookie,
+            reqwest::Method::GET,
+            &format!("/api/revisions/{revision_id}"),
+            None,
+        )
+        .await;
+    let mcp_status = app
+        .mcp(
+            "/admin/mcp",
+            &key,
+            "check_review_status",
+            json!({"revision_id": revision_id}),
+        )
+        .await
+        .expect("status");
+    assert_eq!(web_detail["revision"]["status"], mcp_status["status"]);
+    assert_eq!(
+        web_detail["revision"]["token_added"],
+        mcp_status["token_added"]
+    );
+    assert_eq!(
+        web_detail["revision"]["token_removed"],
+        mcp_status["token_removed"]
+    );
+    assert_eq!(
+        web_detail["revision"]["total_tokens"],
+        mcp_status["total_tokens"]
+    );
+    assert_eq!(web_detail["stale"], mcp_status["stale"]);
+
     // Activation before human approval fails at the domain boundary.
     let denied = app
         .mcp(
@@ -320,6 +353,27 @@ async fn read_and_admin_mcp_share_the_same_revision_domain() {
     }
     names.sort();
     assert_eq!(names, vec!["AGENTS.md", "CLAUDE.md"]);
+
+    let exports: i64 = sqlx::query_scalar("SELECT count(*) FROM bundle_exports")
+        .fetch_one(&app.state.db)
+        .await
+        .unwrap();
+    assert_eq!(exports, 1);
+    sqlx::query("UPDATE bundle_exports SET expires_at = now() - interval '1 minute'")
+        .execute(&app.state.db)
+        .await
+        .unwrap();
+    let cleaned = agentry::lifecycle::cleanup_expired_bundles(&app.state)
+        .await
+        .expect("bundle cleanup");
+    assert_eq!(cleaned, 1);
+    let gone = app
+        .http
+        .get(bundle["url"].as_str().unwrap())
+        .send()
+        .await
+        .expect("expired bundle get");
+    assert_ne!(gone.status(), 200);
 
     app.cleanup().await;
 }

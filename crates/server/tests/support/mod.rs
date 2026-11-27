@@ -23,6 +23,10 @@ pub struct TestApp {
 
 impl TestApp {
     pub async fn start() -> Self {
+        Self::start_with_static("crates/server/static").await
+    }
+
+    pub async fn start_with_static(static_dir: &str) -> Self {
         let _ = tracing_subscriber::fmt()
             .with_env_filter("error,agentry=warn")
             .with_test_writer()
@@ -62,7 +66,7 @@ impl TestApp {
             database_url: database_url.clone(),
             bind_addr: address.to_string(),
             public_url,
-            static_dir: "crates/server/static".into(),
+            static_dir: static_dir.to_string(),
             allowed_hosts: vec!["127.0.0.1".into(), "localhost".into()],
             storage_backend: StorageBackend::Memory,
             oss: None,
