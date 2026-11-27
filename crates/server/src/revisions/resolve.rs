@@ -46,6 +46,14 @@ pub async fn resolve_conflict(
             ),
         ));
     }
+    if revision.merged_against_revision_id != active_id {
+        // Rebasing a full snapshot over a newer active revision would silently
+        // revert unrelated changes. The safe path is a new proposal.
+        return Err(AppError::conflict(
+            "REVISION_STALE",
+            "the project active revision changed after this conflict was created; re-propose the change against the current active revision",
+        ));
+    }
 
     let conflict_rows: Vec<(String, sqlx::types::Json<Value>)> = sqlx::query_as(
         "SELECT path, detail FROM revision_conflicts WHERE revision_id = $1 ORDER BY path",
@@ -148,8 +156,8 @@ pub async fn resolve_conflict(
     }
 
     // Recompute the entire snapshot relative to the current active revision.
-    // A resolution rebases the revision: merged_against_revision_id is set to
-    // the active revision current at resolution time.
+    // The revision was validated above as merged against this same active
+    // revision, so replacing conflict paths cannot revert unrelated files.
     let mut token_added = 0i64;
     let mut token_removed = 0i64;
     let mut total_tokens = 0i64;

@@ -134,6 +134,23 @@ pub async fn cleanup_expired_bundles(state: &AppState) -> Result<usize, anyhow::
     Ok(cleaned)
 }
 
+/// Remove expired web sessions and old call telemetry. Audit events are
+/// retained; only the high-volume request counters are trimmed.
+pub async fn cleanup_expired_sessions_and_stats(
+    state: &AppState,
+) -> Result<(u64, u64), anyhow::Error> {
+    let sessions = sqlx::query("DELETE FROM web_sessions WHERE expires_at < now()")
+        .execute(&state.db)
+        .await?
+        .rows_affected();
+    let stats =
+        sqlx::query("DELETE FROM api_call_stats WHERE created_at < now() - interval '90 days'")
+            .execute(&state.db)
+            .await?
+            .rows_affected();
+    Ok((sessions, stats))
+}
+
 pub fn spawn_cleanup(state: AppState) {
     let state = Arc::new(state);
     tokio::spawn(async move {
@@ -149,6 +166,9 @@ pub fn spawn_cleanup(state: AppState) {
                 Ok(0) => {}
                 Ok(count) => tracing::info!(count, "cleaned expired bundle exports"),
                 Err(error) => tracing::warn!(%error, "bundle cleanup failed"),
+            }
+            if let Err(error) = cleanup_expired_sessions_and_stats(&state).await {
+                tracing::warn!(%error, "session/stat cleanup failed");
             }
         }
     });

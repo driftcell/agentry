@@ -64,6 +64,8 @@ fn streamable_config(state: &AppState) -> StreamableHttpServerConfig {
     config.legacy_session_mode = false;
     config.json_response = true;
     config.sse_keep_alive = Some(std::time::Duration::from_secs(15));
+    config.max_request_body_bytes =
+        state.config.max_upload_bytes.saturating_add(1024 * 1024) as usize;
     let hosts = if state.config.allowed_hosts.is_empty() {
         let mut hosts = vec![
             "localhost".to_string(),

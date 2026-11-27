@@ -133,8 +133,10 @@ Arguments: optional `project_slug`, `revision_id`, `resolutions`
 (`{path, content? , oss_key?}`), `commit_message`.
 
 Every conflict path must be resolved exactly once. `oss_key` must be under the
-project's own staging prefix. The revision is rebased against the current
-active revision, returns to `pending_review`, and needs a new human approval.
+project's own staging prefix. If the project active revision moved after the
+conflict was created, resolution fails with `REVISION_STALE`; re-propose against
+the current active revision. A successful resolution returns to
+`pending_review` and needs a new human approval.
 
 ### `manage_platform`
 

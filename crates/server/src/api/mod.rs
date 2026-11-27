@@ -26,6 +26,8 @@ pub fn api_router(state: AppState) -> Router<AppState> {
     };
     use self::users::{create_user, list_users};
 
+    let body_limit = state.config.max_upload_bytes.saturating_add(1024 * 1024) as usize;
+
     Router::<AppState>::new()
         .route("/api/auth/login", post(login))
         .route("/api/auth/logout", post(logout_handler))
@@ -46,7 +48,7 @@ pub fn api_router(state: AppState) -> Router<AppState> {
         .route("/api/revisions/{id}/resolve", post(resolve_revision))
         .route("/api/users", get(list_users).post(create_user))
         .route("/api/{*rest}", any(api_not_found))
-        .layer(axum::extract::DefaultBodyLimit::max(16 * 1024 * 1024))
+        .layer(axum::extract::DefaultBodyLimit::max(body_limit))
         .with_state(state)
 }
 
