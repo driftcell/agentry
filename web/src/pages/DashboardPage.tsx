@@ -341,7 +341,7 @@ export function DashboardPage() {
                                 <div className="font-medium text-ink">{k.key_name ?? "未认证"}</div>
                                 {k.key_prefix ? (
                                   <div className="font-mono text-[11px] text-ink-muted">
-                                    mreg_{k.key_prefix}…
+                                    ak-{k.key_prefix}-…
                                   </div>
                                 ) : null}
                               </td>

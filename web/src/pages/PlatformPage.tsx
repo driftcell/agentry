@@ -534,7 +534,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                             <td className="px-3 py-2.5">
                               <div className="font-medium text-ink">{k.name}</div>
                               <code className="mono-num text-[11px] text-ink-muted">
-                                mreg_{k.key_prefix}_…
+                                ak-{k.key_prefix}-…
                               </code>
                             </td>
                             <td className="px-3 py-2.5 font-mono text-ink">{k.username}</td>
@@ -981,7 +981,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
           revokeTarget ? (
             <div className="border border-hairline bg-paper p-3 text-xs font-mono space-y-1">
               <div>名称：{revokeTarget.name}</div>
-              <div>前缀：mreg_{revokeTarget.key_prefix}_…</div>
+              <div>前缀：ak-{revokeTarget.key_prefix}-…</div>
             </div>
           ) : null
         }
