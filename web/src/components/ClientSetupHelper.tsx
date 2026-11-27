@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { AlertCircle, Check, Copy, Terminal } from "lucide-react";
+import { AlertCircle, Terminal } from "lucide-react";
+import { CopyButton } from "@/components/CopyButton";
 import { Button } from "@/components/ui/button";
 import { Combobox, ComboboxContent, ComboboxItem, ComboboxList, ComboboxTrigger, ComboboxValue } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
@@ -45,35 +46,11 @@ const ENDPOINT_OPTIONS: ReadonlyArray<{
 ];
 
 function CopyBlock({ title, code }: { title: string; code: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard may be unavailable.
-    }
-  };
-
   return (
     <div className="border border-hairline bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline bg-subtle/50 px-3 py-2">
         <p className="font-mono text-xs font-semibold text-ink">{title}</p>
-        <Button variant="outline" size="xs" onClick={() => void handleCopy()}>
-          {copied ? (
-            <>
-              <Check className="h-3 w-3 text-emerald-700" aria-hidden="true" />
-              <span>已复制</span>
-            </>
-          ) : (
-            <>
-              <Copy className="h-3 w-3" aria-hidden="true" />
-              <span>复制</span>
-            </>
-          )}
-        </Button>
+        <CopyButton value={code} showLabel variant="outline" size="xs" />
       </div>
       <pre className="p-3 font-mono text-xs leading-relaxed text-ink overflow-x-auto whitespace-pre">
         {code}

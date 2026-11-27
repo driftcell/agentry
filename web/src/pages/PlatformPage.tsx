@@ -2,9 +2,6 @@ import { useState, useTransition, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlertTriangle,
-  Check,
-  Copy,
   Folder,
   KeyRound,
   Plug,
@@ -17,6 +14,7 @@ import {
 import { ClientSetupHelper } from "@/components/ClientSetupHelper";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { CopyableHash } from "@/components/CopyableHash";
+import { CopyButton } from "@/components/CopyButton";
 import { FadeTransition } from "@/components/FadeTransition";
 import { EmptyPanel, ErrorPanel, ForbiddenPanel, LoadingPanel } from "@/components/StateViews";
 import { Badge } from "@/components/ui/badge";
@@ -103,7 +101,6 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
   const [keySaving, setKeySaving] = useState(false);
   const [keyError, setKeyError] = useState<string | null>(null);
   const [issuedSecret, setIssuedSecret] = useState<IssueKeyResponse | null>(null);
-  const [copiedSecret, setCopiedSecret] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<ApiKeyRow | null>(null);
   const [revoking, setRevoking] = useState(false);
 
@@ -238,7 +235,6 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
       setKeyScopes(["mcp:read"]);
       setKeyGlobal(false);
       setKeyUserId("");
-      setCopiedSecret(false);
       setIssuedSecret(result);
       await queryClient.invalidateQueries({ queryKey: ["project-keys", effectiveKeySlug] });
     } catch (err) {
@@ -294,17 +290,6 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
       setUserError(err instanceof ApiError ? `${err.code}: ${err.message}` : "创建用户失败。");
     } finally {
       setUserSaving(false);
-    }
-  };
-
-  const copyIssuedSecret = async () => {
-    if (!issuedSecret?.api_key) return;
-    try {
-      await navigator.clipboard.writeText(issuedSecret.api_key);
-      setCopiedSecret(true);
-      window.setTimeout(() => setCopiedSecret(false), 1800);
-    } catch {
-      // Ignore clipboard failures.
     }
   };
 
@@ -898,45 +883,35 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
         onOpenChange={(open) => {
           if (!open) {
             setIssuedSecret(null);
-            setCopiedSecret(false);
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="grid-cols-1 sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>请立即复制保存密钥</DialogTitle>
             <DialogDescription>此明文密钥仅展示这一次，关闭后无法再次查看。</DialogDescription>
           </DialogHeader>
 
           {issuedSecret ? (
-            <div className="mt-3 space-y-3">
-              <div className="flex items-center gap-2 border border-amber-400 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-                <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>关闭窗口后明文将被清除，请保存至客户端环境变量。</span>
-              </div>
-
-              <div className="border border-zinc-950 bg-zinc-950 text-zinc-50 p-3 rounded-sm space-y-2">
-                <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400">
-                  <span>{issuedSecret.name}</span>
-                  <span>{issuedSecret.is_global ? "全局" : issuedSecret.project}</span>
+            <div className="mt-3">
+              <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-3">
+                <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                  <span className="truncate font-mono">{issuedSecret.name}</span>
+                  <span className="shrink-0 font-mono">
+                    {issuedSecret.is_global ? "全局" : issuedSecret.project}
+                  </span>
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <code className="font-mono text-xs break-all select-all">
+                <div className="flex items-center gap-2">
+                  <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-2 font-mono text-xs leading-relaxed text-foreground select-all">
                     {issuedSecret.api_key}
                   </code>
-                  <Button variant="secondary" size="xs" onClick={() => void copyIssuedSecret()}>
-                    {copiedSecret ? (
-                      <>
-                        <Check className="h-3 w-3 text-emerald-700" aria-hidden="true" />
-                        <span>已复制</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-3 w-3" aria-hidden="true" />
-                        <span>复制</span>
-                      </>
-                    )}
-                  </Button>
+                  <CopyButton
+                    value={issuedSecret.api_key}
+                    label="复制密钥"
+                    variant="outline"
+                    size="icon-sm"
+                    className="shrink-0"
+                  />
                 </div>
               </div>
             </div>
@@ -947,7 +922,6 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
               size="sm"
               onClick={() => {
                 setIssuedSecret(null);
-                setCopiedSecret(false);
               }}
             >
               我已保存

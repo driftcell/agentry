@@ -1,8 +1,9 @@
 import { useMemo, useState, useTransition } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, Download, ExternalLink, ListTree, Search } from "lucide-react";
+import { Download, ExternalLink, ListTree, Search } from "lucide-react";
 import { CopyableHash } from "@/components/CopyableHash";
+import { CopyButton } from "@/components/CopyButton";
 import { FadeTransition } from "@/components/FadeTransition";
 import { EmptyPanel, ErrorPanel, LoadingPanel } from "@/components/StateViews";
 import { WorkspaceFileTree, useExpandedDirs } from "@/components/WorkspaceFileTree";
@@ -65,7 +66,6 @@ export function ExplorerPage({
   const [manualSelectedPath, setManualSelectedPath] = useState<string | null>(initialPath ?? null);
   const [highlightedLine, setHighlightedLine] = useState<number | null>(null);
   const [showAllLines, setShowAllLines] = useState(false);
-  const [copiedSource, setCopiedSource] = useState(false);
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
   const workspaceQuery = useQuery({
@@ -134,17 +134,6 @@ export function ExplorerPage({
       queryKey: ["revision", revisionId],
       queryFn: () => api.revisionDetail(revisionId),
     });
-  };
-
-  const handleCopyContent = async () => {
-    if (!fileData?.content) return;
-    try {
-      await navigator.clipboard.writeText(fileData.content);
-      setCopiedSource(true);
-      window.setTimeout(() => setCopiedSource(false), 1500);
-    } catch {
-      // Clipboard may be unavailable.
-    }
   };
 
   const jumpToLine = (lineNo: number) => {
@@ -379,23 +368,12 @@ export function ExplorerPage({
                         </span>
                         <CopyableHash value={fileData.sha256} label="复制 SHA-256" />
                         {fileData.is_text && fileData.content !== null ? (
-                          <Button
+                          <CopyButton
+                            value={fileData.content}
+                            showLabel
                             variant="outline"
                             size="xs"
-                            onClick={() => void handleCopyContent()}
-                          >
-                            {copiedSource ? (
-                              <>
-                                <Check className="h-3 w-3 text-emerald-700" aria-hidden="true" />
-                                <span>已复制</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="h-3 w-3" aria-hidden="true" />
-                                <span>复制</span>
-                              </>
-                            )}
-                          </Button>
+                          />
                         ) : null}
                       </div>
                     </div>
