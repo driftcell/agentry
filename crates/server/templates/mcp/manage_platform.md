@@ -2,6 +2,10 @@
 # Created project `{{ slug.as_deref().unwrap_or("") }}`
 - Name: {{ name.as_deref().unwrap_or("") }}
 - Project ID: {% if let Some(pid) = project_id %}{{ pid }}{% endif %}
+{%- else if action == "delete_project" %}
+# Soft-deleted project `{{ slug.as_deref().unwrap_or("") }}`
+- Project ID: {% if let Some(pid) = project_id %}{{ pid }}{% endif %}
+- Deleted: {{ deleted.unwrap_or(true) }}
 {%- else if action == "issue_api_key" %}
 # Issued API key `{{ name.as_deref().unwrap_or("") }}`
 - Key ID: {% if let Some(kid) = api_key_id %}{{ kid }}{% endif %}

@@ -97,6 +97,7 @@ pub(super) struct ResolutionInput {
 #[serde(rename_all = "snake_case")]
 pub(super) enum PlatformAction {
     CreateProject,
+    DeleteProject,
     IssueApiKey,
     RevokeApiKey,
     ListUsers,

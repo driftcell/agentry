@@ -184,6 +184,9 @@ the current active revision. A successful resolution returns to
 Arguments: `action` plus action-specific fields.
 
 - `create_project`: `slug`, `name`, optional `description`, `token_budget`.
+- `delete_project`: `slug` (soft delete; requires a superadmin key). The project
+  disappears from lists and reads, but revisions, memberships, blobs and audit
+  events are retained. The slug stays reserved.
 - `issue_api_key`: `name`, `scopes`, optional `project_slug`, `is_global`,
   `user_id` (UUID or `username`). Global, platform-scoped and other-user keys
   require a superadmin.
@@ -205,6 +208,13 @@ Approval is not an MCP tool. A human signs in at `/api/auth/login` and uses
 - `POST /api/revisions/{id}/resolve` with `{resolutions, commit_message?}`
 
 The session cookie is `agentry_session`, HTTP-only and SameSite=Strict.
+
+## Project soft delete (web API)
+
+A superadmin can call `DELETE /api/projects/{slug}` to soft-delete a project.
+The project disappears from lists and all reads immediately, while revisions,
+memberships, blobs and audit events remain in place. The slug stays reserved
+until a future restore/purge operation is added.
 
 ## Client configuration
 

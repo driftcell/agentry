@@ -98,7 +98,7 @@ impl ProjectContext {
 
 pub async fn load_project_by_slug(db: &PgPool, slug: &str) -> Result<Option<Project>, AppError> {
     sqlx::query_as::<_, Project>(
-        "SELECT id, slug, name, description, token_budget, active_revision_id FROM projects WHERE slug = $1",
+        "SELECT id, slug, name, description, token_budget, active_revision_id FROM projects WHERE slug = $1 AND deleted_at IS NULL",
     )
     .bind(slug)
     .fetch_optional(db)
@@ -108,7 +108,7 @@ pub async fn load_project_by_slug(db: &PgPool, slug: &str) -> Result<Option<Proj
 
 pub async fn load_project_by_id(db: &PgPool, id: Uuid) -> Result<Option<Project>, AppError> {
     sqlx::query_as::<_, Project>(
-        "SELECT id, slug, name, description, token_budget, active_revision_id FROM projects WHERE id = $1",
+        "SELECT id, slug, name, description, token_budget, active_revision_id FROM projects WHERE id = $1 AND deleted_at IS NULL",
     )
     .bind(id)
     .fetch_optional(db)
@@ -318,7 +318,7 @@ pub async fn resolve_tool_project(
 pub async fn list_projects_for_user(db: &PgPool, user: &WebUser) -> Result<Vec<Project>, AppError> {
     let projects = if user.is_admin() {
         sqlx::query_as::<_, Project>(
-            "SELECT id, slug, name, description, token_budget, active_revision_id FROM projects ORDER BY slug",
+            "SELECT id, slug, name, description, token_budget, active_revision_id FROM projects WHERE deleted_at IS NULL ORDER BY slug",
         )
         .fetch_all(db)
         .await?
@@ -329,6 +329,7 @@ pub async fn list_projects_for_user(db: &PgPool, user: &WebUser) -> Result<Vec<P
             FROM projects p
             JOIN project_members m ON m.project_id = p.id
             WHERE m.user_id = $1
+              AND p.deleted_at IS NULL
             ORDER BY p.slug
             "#,
         )

@@ -28,7 +28,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const ME_QUERY_KEY = ["auth", "me"] as const;
+export const ME_QUERY_KEY = ["auth", "me"] as const;
 const SELECTED_PROJECT_STORAGE_KEY = "agentry:selected_project";
 
 function readStoredProject(): string {

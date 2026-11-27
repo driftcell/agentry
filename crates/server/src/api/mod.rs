@@ -19,7 +19,9 @@ pub fn api_router(state: AppState) -> Router<AppState> {
     use self::auth::{login, logout_handler, me};
     use self::dashboard::dashboard;
     use self::keys::{issue_key, list_all_keys, list_keys, revoke_key};
-    use self::projects::{create_project, list_projects, project_detail, project_file, workspace};
+    use self::projects::{
+        create_project, delete_project, list_projects, project_detail, project_file, workspace,
+    };
     use self::revisions::{
         approve_revision, project_revisions, rebase_revision, reject_revision, resolve_revision,
         revision_detail, revision_file,
@@ -34,7 +36,10 @@ pub fn api_router(state: AppState) -> Router<AppState> {
         .route("/api/auth/me", get(me))
         .route("/api/dashboard", get(dashboard))
         .route("/api/projects", get(list_projects).post(create_project))
-        .route("/api/projects/{slug}", get(project_detail))
+        .route(
+            "/api/projects/{slug}",
+            get(project_detail).delete(delete_project),
+        )
         .route("/api/projects/{slug}/workspace", get(workspace))
         .route("/api/projects/{slug}/file", get(project_file))
         .route("/api/projects/{slug}/revisions", get(project_revisions))

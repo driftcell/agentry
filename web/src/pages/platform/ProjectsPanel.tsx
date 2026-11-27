@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth-context";
 import { formatTokens } from "@/lib/format";
 import { usePlatform } from "./PlatformProvider";
 import { CreateProjectDialog } from "./CreateProjectDialog";
+import { DeleteProjectDialog } from "./DeleteProjectDialog";
 
 export function ProjectsPanel() {
   const { meta, actions } = usePlatform();
@@ -91,6 +92,17 @@ export function ProjectsPanel() {
                           密钥
                         </button>
                       ) : null}
+                      {meta.canPlatform ? (
+                        <button
+                          type="button"
+                          onClick={() => actions.requestDelete(project)}
+                          title={`删除项目 ${project.slug}`}
+                          aria-label={`删除项目 ${project.slug}`}
+                          className="text-xs text-red-700 underline underline-offset-2 cursor-pointer"
+                        >
+                          删除
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -101,6 +113,7 @@ export function ProjectsPanel() {
       )}
 
       <CreateProjectDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <DeleteProjectDialog />
     </div>
   );
 }

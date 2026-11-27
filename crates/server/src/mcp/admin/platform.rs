@@ -59,6 +59,46 @@ impl super::AdminServer {
                     ..Default::default()
                 })
             }
+            PlatformAction::DeleteProject => {
+                if ctx.key.user_role != "superadmin" {
+                    return Err(ToolError::forbidden(
+                        "project deletion requires a superadmin key",
+                    ));
+                }
+                let slug = args
+                    .project_slug
+                    .or(args.slug)
+                    .ok_or_else(|| ToolError::bad_request("slug is required for delete_project"))?;
+                let project = resolve_tool_project(&self.state, ctx, Some(&slug)).await?;
+                let project_id: Uuid = sqlx::query_scalar(
+                    r#"
+                    UPDATE projects
+                    SET deleted_at = now(), updated_at = now()
+                    WHERE id = $1 AND deleted_at IS NULL
+                    RETURNING id
+                    "#,
+                )
+                .bind(project.id)
+                .fetch_optional(&self.state.db)
+                .await
+                .map_err(|e| ToolError::internal(format!("delete project: {e}")))?
+                .ok_or_else(|| ToolError::not_found("project not found"))?;
+                let slug = project.slug;
+                audit_platform(
+                    &self.state,
+                    ctx,
+                    "delete_project",
+                    json!({"project_id": project_id, "slug": &slug}),
+                )
+                .await;
+                Ok(PlatformOutput {
+                    action: "delete_project".to_string(),
+                    project_id: Some(project_id),
+                    slug: Some(slug),
+                    deleted: Some(true),
+                    ..Default::default()
+                })
+            }
             PlatformAction::IssueApiKey => {
                 let name = args
                     .name

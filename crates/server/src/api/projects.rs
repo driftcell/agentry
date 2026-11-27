@@ -95,6 +95,45 @@ pub(super) async fn create_project(
     })))
 }
 
+pub(super) async fn delete_project(
+    user: WebUser,
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+) -> Result<Json<Value>> {
+    if !user.can_platform() {
+        return Err(AppError::forbidden(
+            "FORBIDDEN",
+            "project deletion requires a superadmin",
+        ));
+    }
+    let deleted: Option<(Uuid, String)> = sqlx::query_as(
+        r#"
+        UPDATE projects
+        SET deleted_at = now(), updated_at = now()
+        WHERE slug = $1 AND deleted_at IS NULL
+        RETURNING id, slug
+        "#,
+    )
+    .bind(&slug)
+    .fetch_optional(&state.db)
+    .await?;
+    let (project_id, slug) =
+        deleted.ok_or_else(|| AppError::not_found("PROJECT_NOT_FOUND", "project not found"))?;
+    insert_web_audit(
+        &state,
+        Some(project_id),
+        None,
+        &user,
+        "delete_project",
+        json!({"slug": slug}),
+    )
+    .await;
+    Ok(Json(json!({
+        "deleted": true,
+        "project": {"id": project_id, "slug": slug}
+    })))
+}
+
 pub(super) async fn project_detail(
     user: WebUser,
     State(state): State<AppState>,

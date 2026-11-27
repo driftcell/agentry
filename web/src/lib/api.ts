@@ -126,6 +126,13 @@ export const api = {
     });
   },
 
+  deleteProject(slug: string): Promise<{ deleted: boolean; project: { id: string; slug: string } }> {
+    return request<{ deleted: boolean; project: { id: string; slug: string } }>(
+      `/api/projects/${encodeURIComponent(slug)}`,
+      { method: "DELETE" },
+    );
+  },
+
   projectDetail(slug: string): Promise<{ project: Project; active_revision: Revision | null }> {
     return request<{ project: Project; active_revision: Revision | null }>(
       `/api/projects/${encodeURIComponent(slug)}`,
