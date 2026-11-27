@@ -285,13 +285,21 @@ impl super::ReadServer {
             .presign_get(&key, ttl)
             .await
             .map_err(|e| ToolError::internal(format!("sign bundle: {e}")))?;
+        let expires = chrono::Utc::now() + chrono::Duration::seconds(ttl.as_secs() as i64);
+        let _ = sqlx::query(
+            "INSERT INTO bundle_exports (project_id, object_key, expires_at) VALUES ($1, $2, $3)",
+        )
+        .bind(project.id)
+        .bind(&key)
+        .bind(expires)
+        .execute(&self.state.db)
+        .await;
 
-        let expires_at = chrono::Utc::now() + chrono::Duration::seconds(ttl.as_secs() as i64);
         let command = bundle_command(format, &url, &local_target, &suggested_name);
         Ok(json!({
             "format": match format { BundleFormat::TarGz => "tar_gz", BundleFormat::Single => "single" },
             "url": url,
-            "expires_at": expires_at.to_rfc3339(),
+            "expires_at": expires.to_rfc3339(),
             "files": selected,
             "file_count": selected.len(),
             "bytes": total_bytes,

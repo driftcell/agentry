@@ -110,6 +110,30 @@ pub async fn discard_session_objects(state: &AppState, session_id: Uuid) {
     .await;
 }
 
+/// Delete bundle exports whose presigned URL has expired. The row is removed
+/// only after the object deletion succeeds, so a transient OSS error retries on
+/// the next cleanup tick.
+pub async fn cleanup_expired_bundles(state: &AppState) -> Result<usize, anyhow::Error> {
+    let rows: Vec<(uuid::Uuid, String)> = sqlx::query_as(
+        "SELECT id, object_key FROM bundle_exports WHERE expires_at < now() ORDER BY expires_at LIMIT 200",
+    )
+    .fetch_all(&state.db)
+    .await?;
+    let mut cleaned = 0;
+    for (id, key) in rows {
+        if let Err(error) = state.storage.delete(&key).await {
+            tracing::warn!(%error, %key, "failed to delete expired bundle object");
+            continue;
+        }
+        sqlx::query("DELETE FROM bundle_exports WHERE id = $1")
+            .bind(id)
+            .execute(&state.db)
+            .await?;
+        cleaned += 1;
+    }
+    Ok(cleaned)
+}
+
 pub fn spawn_cleanup(state: AppState) {
     let state = Arc::new(state);
     tokio::spawn(async move {
@@ -120,6 +144,11 @@ pub fn spawn_cleanup(state: AppState) {
                 Ok(0) => {}
                 Ok(count) => tracing::info!(count, "cleaned expired transfer sessions"),
                 Err(error) => tracing::warn!(%error, "transfer session cleanup failed"),
+            }
+            match cleanup_expired_bundles(&state).await {
+                Ok(0) => {}
+                Ok(count) => tracing::info!(count, "cleaned expired bundle exports"),
+                Err(error) => tracing::warn!(%error, "bundle cleanup failed"),
             }
         }
     });
