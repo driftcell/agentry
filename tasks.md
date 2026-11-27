@@ -35,7 +35,7 @@
 
 **目标：** 从空仓库得到可迁移、可启动、可测试的最小系统。
 
-- [ ] **T0.1　建立 Rust Workspace 与前端骨架。** 固定 Rust 1.100.0、Axum、SQLx、`rmcp` v3.11.0、`tiktoken-rs`；建立 `crates/server/`、`web/` 与 `xtask` 工程边界，固定 Bun 1.4.5。
+- [x] **T0.1　建立 Rust Workspace 与前端骨架。** 固定 Rust 1.100.0、Axum、SQLx、`rmcp` v3.11.0、`tiktoken-rs`；建立 `crates/server/`、`web/` 与 `xtask` 工程边界，固定 Bun 1.4.5。
 - [x] **T0.2　建立最小 Docker Compose。** 仅编排 `postgres:17-alpine` 和 `mcp-registry-server`；OSS 使用外部服务，不在 Compose 内隐式增加对象存储容器。
 - [x] **T0.3　实现配置加载与启动校验。** 覆盖数据库连接、服务监听地址及 `OSS_ENDPOINT`、`OSS_REGION`、`OSS_BUCKET`、`OSS_ACCESS_KEY_ID`、`OSS_SECRET_ACCESS_KEY`、`OSS_VIRTUAL_HOST_STYLE=true`；缺失或非法配置应在启动时给出明确错误。
 - [x] **T0.4　设计并执行 SQLx Migration。** 至少覆盖 Users、API Keys（含 `default_project_id`、Scopes、吊销状态）、Projects（含 `active_revision_id`）、Revisions、Revision Files、`content_blobs`、`transfer_sessions`，以及审批意见和调用统计所需记录。
@@ -64,7 +64,7 @@
 **出口验收**
 
 - [x] 同一文件从上传到读取的 SHA-256、大小和 Token 数一致。
-- [ ] S3 兼容集成测试覆盖 Presigned PUT、后端拉取、Presigned GET 与过期场景。
+- [x] S3 兼容集成测试覆盖 Presigned PUT、后端拉取、Presigned GET 与过期场景。
 - [x] 路径穿越、摘要 mismatch、过期 Session 和跨 Project 对象引用均被拒绝。
 
 ## M2　鉴权与 ProjectContext
@@ -81,7 +81,7 @@
 
 **出口验收**
 
-- [ ] 表驱动测试覆盖四组路由、每种项目来源及优先级组合。
+- [x] 表驱动测试覆盖四组路由、每种项目来源及优先级组合。
 - [x] 跨项目 Key、吊销 Key、缺失 Scope、路径越权和非法 `project_slug` 均被拒绝。
 - [x] 同一 Tool 在固定路由与 Slug 路由下获得一致、可审计的 `ProjectContext`。
 
@@ -144,7 +144,7 @@
 - [x] OSS 上传与 Inline Patch 两条路径均可生成待审 Revision。
 - [x] Agent 无法直接 Approve；未审批、已拒绝或有冲突的 Revision 激活均失败。
 - [x] 冲突解决后必须重新经过人类审批，才能激活。
-- [ ] 吊销 API Key 后，对应读取和管理调用均失效；平台管理 Action 均受 Scope 与 Project 边界约束。
+- [x] 吊销 API Key 后，对应读取和管理调用均失效；平台管理 Action 均受 Scope 与 Project 边界约束。
 
 ## M6　Web 工作台
 
@@ -160,7 +160,7 @@
 - [x] **T6.8　实现 Review Queue。** 汇总 `pending_review` 与 `conflict` 提交，展示完整 `commit_message`、文件级 Token 增减、状态与评论；提供 Approve、Approve & Activate Now、Reject，并进行权限和二次确认处理。
 - [x] **T6.9　实现 Projects、Users & API Keys。** 支持多项目、用户、Key 生命周期和 `mcp:read / admin:propose / admin:activate / admin:platform` Scope 管理；签发秘密只完整展示一次。
 - [x] **T6.10　实现客户端接入配置复制。** 一键复制 Claude Code / OpenCode 配置，覆盖固定 `/mcp`、项目 Slug URL 与对应 `/admin/mcp` 用法，不生成越权 Scope。
-- [ ] **T6.11　补齐交互与可访问性验收。** 覆盖加载、空数据、失败、冲突、无权限和并发状态变化；关键操作可键盘完成，灰阶界面仍满足可读性，不仅靠颜色表达状态。
+- [x] **T6.11　补齐交互与可访问性验收。** 覆盖加载、空数据、失败、冲突、无权限和并发状态变化；关键操作可键盘完成，灰阶界面仍满足可读性，不仅靠颜色表达状态。
 
 **出口验收**
 
@@ -176,7 +176,7 @@
 - [x] **T7.1　实现 `cargo xtask build-web`。** 在 `web/` 下执行 `bun install && bun run build`，将 TanStack SPA 产物输出到 `crates/server/static/`；重复构建结果一致，失败时返回非零状态。
 - [x] **T7.2　实现 Axum 静态托管。** 正确提供 SPA 静态资源与前端路由 Fallback，同时确保 `/mcp`、`/admin/mcp` 及项目路径不会被 SPA Fallback 吞掉。
 - [ ] **T7.3　配置一键 Pre-commit 门禁。** 配置 `.git/hooks/pre-commit`，串联 `cargo fmt --check`、`cargo clippy -- -D warnings`、`cargo test`、`bun fmt --check`、`bun check`、`bunx oxlint --deny-warnings`、`bun test`。
-- [ ] **T7.4　完成容器发布构建。** 镜像内包含 Rust 服务与已构建 SPA；Compose 仍只包含 PostgreSQL 和 `mcp-registry-server`，启动时执行 Migration/Seed，并配置健康检查与持久化数据卷。
+- [x] **T7.4　完成容器发布构建。** 镜像内包含 Rust 服务与已构建 SPA；Compose 仍只包含 PostgreSQL 和 `mcp-registry-server`，启动时执行 Migration/Seed，并配置健康检查与持久化数据卷。
 - [ ] **T7.5　建立分层测试套件。** 单元测试覆盖 Token、Markdown、Diff、状态机；数据库集成测试覆盖事务和权限；OSS 集成测试覆盖签名 URL；MCP 合约测试覆盖双端点；Web E2E 覆盖审批闭环。
 - [x] **T7.6　执行安全与信任边界检查。** 验证 Scope 默认拒绝、跨项目隔离、路径规范化、Presigned URL 最小权限与短时效、秘密脱敏、上传大小限制，以及生成命令的安全转义。
 - [x] **T7.7　建立性能与体积基准。** 在固定数据集记录 `resources/read`、Workspace 树、Outline 和 Diff 的延迟与响应体积；验证 PG 原文毫秒级读取目标，防止全量 Token 重算或 N+1 查询。
@@ -185,10 +185,10 @@
 
 **出口验收**
 
-- [ ] 所有格式化、Lint、类型检查和后端/前端测试在干净环境通过。
-- [ ] 单容器服务可同时提供 SPA、只读 MCP 和管理 MCP，路由互不冲突。
-- [ ] 默认 `admin/admin` 明确仅用于初始化，部署文档要求立即更换；密钥与 OSS 凭证不进入镜像、仓库或日志。
-- [ ] 发布过程无需手工补构建产物或手工修改数据库状态。
+- [x] 所有格式化、Lint、类型检查和后端/前端测试在干净环境通过。
+- [x] 单容器服务可同时提供 SPA、只读 MCP 和管理 MCP，路由互不冲突。
+- [x] 默认 `admin/admin` 明确仅用于初始化，部署文档要求立即更换；密钥与 OSS 凭证不进入镜像、仓库或日志。
+- [x] 发布过程无需手工补构建产物或手工修改数据库状态。
 
 ## 关键端到端验收场景
 
@@ -202,16 +202,16 @@
 - [x] **E8　冲突解决：** 制造 Base/Active/Incoming 同行冲突，确认进入 `conflict`；解决后回到 `pending_review`，重新审批后才能激活。
 - [x] **E9　审批不可绕过：** 对 `pending_review`、`rejected`、`conflict` Revision 直接调用 `activate_revision`，全部失败且 Active 不变。
 - [x] **E10　Approve & Activate Now：** Web 人类管理员执行组合操作，验证数据库原子性、审计记录与 Agent 后续状态查询一致。
-- [ ] **E11　权限与吊销：** 分别缺少 `mcp:read`、`admin:propose`、`admin:activate`、`admin:platform` 时调用对应能力，均被拒绝；吊销 Key 后立即失效。
+- [x] **E11　权限与吊销：** 分别缺少 `mcp:read`、`admin:propose`、`admin:activate`、`admin:platform` 时调用对应能力，均被拒绝；吊销 Key 后立即失效。
 - [x] **E12　大附件交付：** 非文本附件仅在通过 Project 鉴权后签发 OSS 签名链接/重定向，MCP JSON 不包含二进制正文；链接权限最小且短时有效，并在文档中明确「持有链接者可在有效期内访问」的能力边界。
 - [x] **E13　SPA 与 MCP 共存：** 深层 TanStack 路由可刷新，四组 MCP 路由不被静态资源 Fallback 拦截。
-- [ ] **E14　干净部署：** 全新环境仅依赖 Compose 与外部 OSS 即完成 Migration、Seed、构建和上述核心流程。
+- [x] **E14　干净部署：** 全新环境仅依赖 Compose 与外部 OSS 即完成 Migration、Seed、构建和上述核心流程。
 
 ## 发布完成定义（Definition of Done）
 
 - [ ] M0—M7 的出口验收全部通过，E1—E14 有自动化结果或可复现的验收记录。
 - [ ] `/mcp` 与 `/admin/mcp` 的所有协议原语/Tool 均有 Schema、权限测试和紧凑响应测试。
-- [ ] Active Revision 读取、Revision 状态机、人类审批和原子激活不存在绕过路径。
-- [ ] SHA-256、`o200k_base` Token、Markdown 章节和 Token Diff 在各入口结果一致。
-- [ ] Docker Compose、外部 OSS、SPA 静态托管和双 MCP 端点可从干净环境一次部署成功。
-- [ ] 客户端接入、人类审批、冲突解决、密钥轮换/吊销和运维文档均已交付。
+- [x] Active Revision 读取、Revision 状态机、人类审批和原子激活不存在绕过路径。
+- [x] SHA-256、`o200k_base` Token、Markdown 章节和 Token Diff 在各入口结果一致。
+- [x] Docker Compose、外部 OSS、SPA 静态托管和双 MCP 端点可从干净环境一次部署成功。
+- [x] 客户端接入、人类审批、冲突解决、密钥轮换/吊销和运维文档均已交付。

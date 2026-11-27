@@ -73,6 +73,26 @@ async fn project_sources_follow_the_fixed_priority_table() {
         .await;
     let global_key = global["api_key"].as_str().unwrap();
 
+    // A project-bound platform key cannot revoke a global key.
+    let platform_bound = app
+        .web(
+            &cookie,
+            reqwest::Method::POST,
+            "/api/projects/default/keys",
+            Some(json!({"name": "platform-bound", "scopes": ["admin:platform"]})),
+        )
+        .await;
+    let boundary = app
+        .mcp(
+            "/admin/mcp",
+            platform_bound["api_key"].as_str().unwrap(),
+            "manage_platform",
+            json!({"action": "revoke_api_key", "api_key_id": global["api_key_id"]}),
+        )
+        .await
+        .expect_err("bound key must not revoke a global key");
+    assert_eq!(boundary["error"]["code"], "FORBIDDEN");
+
     // Project-bound key: its default project is used without a header.
     let (status, body) = call(&app, bound_key, "/mcp", None).await;
     assert_eq!(status, 200);
@@ -130,6 +150,37 @@ async fn project_sources_follow_the_fixed_priority_table() {
         .await
         .expect_err("illegal project_slug");
     assert_eq!(invalid_slug["error"]["code"], "INVALID_ARGUMENT");
+
+    // The admin endpoint family resolves the same project sources. A tool
+    // error (UNKNOWN_TOOL here) still means the middleware resolved a context;
+    // cross-project requests stop at 403.
+    let admin_bound = app
+        .web(
+            &cookie,
+            reqwest::Method::POST,
+            "/api/projects/default/keys",
+            Some(json!({"name": "admin-bound", "scopes": ["admin:propose"]})),
+        )
+        .await;
+    let admin_key = admin_bound["api_key"].as_str().unwrap();
+    let (status, _) = call(&app, admin_key, "/admin/mcp", None).await;
+    assert_eq!(status, 200);
+    let (status, body) = call(
+        &app,
+        admin_key,
+        "/admin/mcp",
+        Some(("X-MCP-Project", "second")),
+    )
+    .await;
+    assert_eq!(status, 403);
+    assert_eq!(http_error_code(&body), "PROJECT_ACCESS_DENIED");
+    let (status, _) = call(&app, admin_key, "/admin/mcp/projects/default", None).await;
+    assert_eq!(status, 200);
+    let (status, body) = call(&app, admin_key, "/admin/mcp/projects/second", None).await;
+    assert_eq!(status, 403);
+    assert_eq!(http_error_code(&body), "PROJECT_ACCESS_DENIED");
+    let (status, _) = call(&app, global_key, "/admin/mcp", None).await;
+    assert_eq!(status, 200);
 
     // Scope gates are default-deny on both endpoint families.
     let reader = app
