@@ -41,7 +41,7 @@ pub fn truncate_to_tokens(text: &str, max_tokens: usize) -> (String, usize) {
         return (text.to_string(), encoded.len());
     }
     let truncated_tokens = &encoded[..max_tokens];
-    match tokenizer().decode(truncated_tokens.to_vec()) {
+    match tokenizer().decode(truncated_tokens) {
         Ok(decoded) => (decoded, max_tokens),
         Err(_) => {
             // Decoding a prefix of valid tokens should not fail; fall back to

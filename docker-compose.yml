@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:19-alpine
     environment:
       POSTGRES_USER: agentry
       POSTGRES_PASSWORD: agentry
@@ -8,7 +8,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - agentry_pgdata:/var/lib/postgresql/data
+      - agentry_pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U agentry -d agentry"]
       interval: 3s

@@ -4,7 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 
-const outDir = path.resolve(__dirname, "../crates/server/static");
+const outDir = path.resolve(import.meta.dirname, "../crates/server/static");
 
 function cleanStaticExceptGitkeep(): Plugin {
   return {
@@ -32,7 +32,7 @@ export default defineConfig({
   plugins: [cleanStaticExceptGitkeep(), react(), tailwindcss()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
   build: {

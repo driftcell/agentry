@@ -8,5 +8,5 @@
     "react/jsx-key": "error",
     "react/no-danger": "error"
   },
-  "ignorePatterns": ["dist", "../crates/server/static", "node_modules"]
+  "ignorePatterns": ["dist", "node_modules"]
 }

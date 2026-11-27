@@ -77,7 +77,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const projects = meQuery.data?.projects ?? [];
+  const projects = useMemo(
+    () => meQuery.data?.projects ?? [],
+    [meQuery.data?.projects],
+  );
 
   const selectedProjectSlug = useMemo(() => {
     if (projects.length === 0) return "";

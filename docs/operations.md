@@ -49,12 +49,15 @@ committed `.env`.
 
 ## Compose
 
-`docker-compose.yml` contains exactly two services: `postgres:17-alpine` and
+`docker-compose.yml` contains exactly two services: `postgres:19-alpine` and
 `agentry`. OSS is external by design; do not add an object-storage container to
 the production Compose file.
 
 The server runs migrations and seed at startup. PostgreSQL data lives in the
-`agentry_pgdata` volume.
+`agentry_pgdata` volume. PostgreSQL 18+ uses a version-specific `PGDATA`
+directory, so the volume must be mounted at `/var/lib/postgresql`; upgrading an
+existing PostgreSQL 17 volume requires `pg_upgrade` or, when the data is
+disposable, `docker compose down -v` before starting the new image.
 
 ## Backup and restore
 

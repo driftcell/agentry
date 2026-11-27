@@ -438,7 +438,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                         const isRevoked = Boolean(k.revoked_at);
                         const isExpired =
                           Boolean(k.expires_at) &&
-                          new Date(k.expires_at ?? "").getTime() <= Date.now();
+                          new Date(k.expires_at ?? "").getTime() <= keysQuery.dataUpdatedAt;
                         return (
                           <tr key={k.id} className="hover:bg-subtle/40">
                             <td className="px-3 py-2.5">

@@ -107,7 +107,7 @@ export function ConflictMerger({
       return "";
     }
     return incomingSide.content;
-  }, [incomingSide?.content, hasMarkersInIncoming, activeConflict]);
+  }, [incomingSide, hasMarkersInIncoming, activeConflict]);
 
   const currentBuffer = useMemo(() => {
     if (!activePath) return "";

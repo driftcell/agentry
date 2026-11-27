@@ -62,7 +62,10 @@ export function ExplorerPage({
     enabled: Boolean(activeSlug),
   });
 
-  const files = workspaceQuery.data?.workspace.files ?? [];
+  const files = useMemo(
+    () => workspaceQuery.data?.workspace.files ?? [],
+    [workspaceQuery.data?.workspace.files],
+  );
   const treeNodes = useMemo(
     () => buildFileTree(files, kindFilter, searchQuery),
     [files, kindFilter, searchQuery],
