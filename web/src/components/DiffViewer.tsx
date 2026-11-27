@@ -202,13 +202,6 @@ export function DiffViewer({
         <div className="p-4">
           <EmptyPanel title="两侧均无内容" description="当前选定的两个版本快照中均不包含该路径。" />
         </div>
-      ) : diff.isIdentical ? (
-        <div className="space-y-3 p-4">
-          <EmptyPanel
-            title="两侧内容无差异"
-            description={`${leftLabel} 与 ${rightLabel} 在文件 ${path} 上内容完全一致。`}
-          />
-        </div>
       ) : null}
 
       {!bothAbsent && diff.lines.length > 0 ? (

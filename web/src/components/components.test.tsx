@@ -104,7 +104,7 @@ describe("Base UI & workbench components", () => {
     expect(confirmed).toBe(true);
   });
 
-  test("DiffViewer renders Split lines, empty state for identical sides, and binary download links", () => {
+  test("DiffViewer renders Split lines, full context for identical sides, and binary download links", () => {
     const baseSide: FileSideResponse = {
       path: "CLAUDE.md",
       side: "active",
@@ -149,7 +149,8 @@ describe("Base UI & workbench components", () => {
         rightSide={baseSide}
       />,
     );
-    expect(screen.getByText("两侧内容无差异")).toBeDefined();
+    expect(screen.queryByText("两侧内容无差异")).toBeNull();
+    expect(screen.getAllByText("line one").length).toBeGreaterThan(0);
 
     rerender(
       <DiffViewer
