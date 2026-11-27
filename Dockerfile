@@ -7,7 +7,7 @@ RUN bun install --frozen-lockfile
 COPY web/ ./
 RUN mkdir -p /app/crates/server/static && bun run build
 
-FROM rust:1.100.0-bookworm AS chef
+FROM rust:1.100.0-trixie AS chef
 RUN cargo install --locked cargo-chef
 WORKDIR /app
 
@@ -21,7 +21,7 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release --bin agentry
 
-FROM debian:bookworm-slim AS runtime
+FROM debian:trixie-slim AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl \
     && rm -rf /var/lib/apt/lists/* \
