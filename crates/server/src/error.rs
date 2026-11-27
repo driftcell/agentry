@@ -1,3 +1,4 @@
+use askama::Template;
 use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
@@ -122,6 +123,13 @@ pub struct ToolError {
     pub message: String,
 }
 
+#[derive(askama::Template)]
+#[template(path = "mcp/error.md", escape = "none")]
+struct ToolErrorTemplate<'a> {
+    code: &'a str,
+    message: &'a str,
+}
+
 impl ToolError {
     pub fn new(code: &'static str, message: impl Into<String>) -> Self {
         Self {
@@ -156,9 +164,17 @@ impl ToolError {
     }
 
     pub fn into_call_result(self) -> rmcp::model::CallToolResult {
-        rmcp::model::CallToolResult::error(vec![rmcp::model::ContentBlock::text(
-            self.to_json().to_string(),
-        )])
+        let structured = self.to_json();
+        let markdown = ToolErrorTemplate {
+            code: self.code,
+            message: &self.message,
+        }
+        .render()
+        .unwrap_or_else(|_| structured.to_string());
+        let mut result =
+            rmcp::model::CallToolResult::error(vec![rmcp::model::ContentBlock::text(markdown)]);
+        result.structured_content = Some(structured);
+        result
     }
 }
 

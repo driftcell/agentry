@@ -215,15 +215,7 @@ impl TestApp {
                 serde_json::json!({"name": tool, "arguments": arguments}),
             )
             .await?;
-        let parsed: Value = if result.get("isError").and_then(|v| v.as_bool()) == Some(true) {
-            let text = result
-                .get("content")
-                .and_then(|c| c.get(0))
-                .and_then(|c| c.get("text"))
-                .and_then(|t| t.as_str())
-                .unwrap_or("{}");
-            serde_json::from_str(text).expect("tool error json")
-        } else if let Some(structured) = result.get("structuredContent") {
+        let parsed: Value = if let Some(structured) = result.get("structuredContent") {
             structured.clone()
         } else {
             let text = result

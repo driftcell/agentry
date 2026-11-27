@@ -10,6 +10,52 @@ fn keys(value: &serde_json::Value) -> Vec<String> {
 }
 
 #[tokio::test]
+async fn tool_errors_return_markdown_and_structured_json() {
+    let app = TestApp::start().await;
+    let cookie = app.login().await;
+    let key = app
+        .web(
+            &cookie,
+            reqwest::Method::POST,
+            "/api/projects/default/keys",
+            Some(json!({"name": "errors", "scopes": ["mcp:read"]})),
+        )
+        .await["api_key"]
+        .as_str()
+        .unwrap()
+        .to_string();
+
+    let result = app
+        .mcp_rpc(
+            "/mcp",
+            &key,
+            "tools/call",
+            json!({
+                "name": "read_slice",
+                "arguments": {"path": "missing.md", "mode": "full"}
+            }),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(result["isError"], true);
+    let text = result["content"][0]["text"].as_str().unwrap();
+    assert!(text.starts_with("# Tool error: NOT_FOUND"));
+    assert!(text.contains("missing.md is not in the active revision"));
+    assert_eq!(
+        result["structuredContent"],
+        json!({
+            "error": {
+                "code": "NOT_FOUND",
+                "message": "missing.md is not in the active revision"
+            }
+        })
+    );
+
+    app.cleanup().await;
+}
+
+#[tokio::test]
 async fn read_contract_fields_digests_tokens_and_size_stay_stable() {
     let app = TestApp::start().await;
     let cookie = app.login().await;
