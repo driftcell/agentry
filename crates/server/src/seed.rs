@@ -158,9 +158,9 @@ pub async fn seed(db: &PgPool, storage: &StorageHandle, config: &Config) -> Resu
     let revision_id: Uuid = sqlx::query_scalar(
         r#"
         INSERT INTO revisions
-            (project_id, status, commit_message, author_user_id, token_added,
+            (project_id, short_code, status, commit_message, author_user_id, token_added,
              token_removed, total_tokens, file_count, activated_at)
-        VALUES ($1, 'active', $2, $3, $4, 0, $4, $5, now())
+        VALUES ($1, 'seed-init', 'active', $2, $3, $4, 0, $4, $5, now())
         RETURNING id
         "#,
     )

@@ -13,7 +13,7 @@ use crate::AppState;
 use crate::error::ToolError;
 use crate::project::ProjectContext;
 
-use super::{parse_args, request_project_context, tool_json};
+use super::{parse_args, request_project_context, tool_dual, tool_json};
 
 #[derive(Clone)]
 pub struct AdminServer {
@@ -33,6 +33,7 @@ impl AdminServer {
                 serde_json::Map::new(),
             )
             .with_input_schema::<StageArgs>()
+            .with_output_schema::<outputs::StageOutput>()
             .with_annotations(ToolAnnotations::new().destructive(false).open_world(false)),
             Tool::new(
                 "propose_revision",
@@ -40,6 +41,7 @@ impl AdminServer {
                 serde_json::Map::new(),
             )
             .with_input_schema::<ProposeArgs>()
+            .with_output_schema::<outputs::ProposeOutput>()
             .with_annotations(ToolAnnotations::new().destructive(false).open_world(false)),
             Tool::new(
                 "check_review_status",
@@ -47,6 +49,7 @@ impl AdminServer {
                 serde_json::Map::new(),
             )
             .with_input_schema::<StatusArgs>()
+            .with_output_schema::<outputs::ReviewStatusOutput>()
             .with_annotations(ToolAnnotations::new().read_only(true).open_world(false)),
             Tool::new(
                 "rebase_revision",
@@ -54,6 +57,7 @@ impl AdminServer {
                 serde_json::Map::new(),
             )
             .with_input_schema::<RebaseArgs>()
+            .with_output_schema::<outputs::RebaseOutput>()
             .with_annotations(ToolAnnotations::new().destructive(false).open_world(false)),
             Tool::new(
                 "activate_revision",
@@ -61,6 +65,7 @@ impl AdminServer {
                 serde_json::Map::new(),
             )
             .with_input_schema::<ActivateArgs>()
+            .with_output_schema::<outputs::ActivateOutput>()
             .with_annotations(ToolAnnotations::new().destructive(true).open_world(false)),
             Tool::new(
                 "resolve_conflict",
@@ -68,6 +73,7 @@ impl AdminServer {
                 serde_json::Map::new(),
             )
             .with_input_schema::<ResolveArgs>()
+            .with_output_schema::<outputs::ResolveOutput>()
             .with_annotations(ToolAnnotations::new().destructive(false).open_world(false)),
             Tool::new(
                 "manage_platform",
@@ -87,27 +93,33 @@ impl AdminServer {
         match request.name.as_ref() {
             "stage_upload_urls" => {
                 let args: StageArgs = parse_args(request.arguments.clone())?;
-                self.stage_upload_urls(ctx, args).await.map(tool_json)
+                let out = self.stage_upload_urls(ctx, args).await?;
+                tool_dual(&out)
             }
             "propose_revision" => {
                 let args: ProposeArgs = parse_args(request.arguments.clone())?;
-                self.propose_revision(ctx, args).await.map(tool_json)
+                let out = self.propose_revision(ctx, args).await?;
+                tool_dual(&out)
             }
             "check_review_status" => {
                 let args: StatusArgs = parse_args(request.arguments.clone())?;
-                self.check_review_status(ctx, args).await.map(tool_json)
+                let out = self.check_review_status(ctx, args).await?;
+                tool_dual(&out)
             }
             "activate_revision" => {
                 let args: ActivateArgs = parse_args(request.arguments.clone())?;
-                self.activate_revision(ctx, args).await.map(tool_json)
+                let out = self.activate_revision(ctx, args).await?;
+                tool_dual(&out)
             }
             "rebase_revision" => {
                 let args: RebaseArgs = parse_args(request.arguments.clone())?;
-                self.rebase_revision(ctx, args).await.map(tool_json)
+                let out = self.rebase_revision(ctx, args).await?;
+                tool_dual(&out)
             }
             "resolve_conflict" => {
                 let args: ResolveArgs = parse_args(request.arguments.clone())?;
-                self.resolve_conflict(ctx, args).await.map(tool_json)
+                let out = self.resolve_conflict(ctx, args).await?;
+                tool_dual(&out)
             }
             "manage_platform" => {
                 let args: PlatformArgs = parse_args(request.arguments.clone())?;
@@ -195,6 +207,7 @@ impl ServerHandler for AdminServer {
 }
 
 mod args;
+mod outputs;
 mod platform;
 mod review;
 mod uploads;

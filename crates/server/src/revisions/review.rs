@@ -20,6 +20,7 @@ use super::store::{
 #[derive(Debug, Clone, Serialize)]
 pub struct ReviewStatus {
     pub revision_id: Uuid,
+    pub short_code: String,
     pub project_slug: String,
     pub status: String,
     pub commit_message: String,
@@ -51,6 +52,7 @@ pub async fn review_status(
     let conflicts = revision_conflicts(db, revision.id).await?;
     Ok(ReviewStatus {
         revision_id: revision.id,
+        short_code: revision.short_code.clone(),
         project_slug: project.slug.clone(),
         status: revision.status.clone(),
         commit_message: revision.commit_message.clone(),

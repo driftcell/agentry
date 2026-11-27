@@ -68,6 +68,7 @@ impl RevisionStatus {
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 pub struct Revision {
     pub id: Uuid,
+    pub short_code: String,
     pub project_id: Uuid,
     pub base_revision_id: Option<Uuid>,
     pub merged_against_revision_id: Option<Uuid>,
@@ -116,11 +117,21 @@ pub struct ConflictDetail {
     pub preview: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, schemars::JsonSchema)]
 pub struct ConflictView {
     pub path: String,
     pub hunks: usize,
     pub lines: Vec<usize>,
+}
+
+impl ConflictView {
+    pub fn lines_csv(&self) -> String {
+        self.lines
+            .iter()
+            .map(|l| l.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
 }
 
 impl From<&ConflictDetail> for ConflictView {

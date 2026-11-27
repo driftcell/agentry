@@ -25,11 +25,10 @@ async fn call(app: &TestApp, key: &str, path: &str, header: Option<(&str, &str)>
 }
 
 fn tool_project(body: &Value) -> String {
-    let text = body["result"]["content"][0]["text"]
+    body["result"]["structuredContent"]["project"]
         .as_str()
-        .expect("tool text");
-    let parsed: Value = serde_json::from_str(text).expect("tool json");
-    parsed["project"].as_str().unwrap_or("").to_string()
+        .unwrap_or("")
+        .to_string()
 }
 
 fn http_error_code(body: &Value) -> &str {

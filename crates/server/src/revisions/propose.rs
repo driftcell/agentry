@@ -42,26 +42,30 @@ pub async fn propose_revision(
     }
 
     let active_revision_id = project.active_revision_id;
-    let (base_map, base_id) = if let Some(base_id) = base_revision_id {
-        let base = get_revision_for_project(&state.db, project.id, base_id)
-            .await?
-            .ok_or_else(|| {
-                AppError::bad_request(
-                    "INVALID_BASE",
-                    "base revision does not belong to this project",
-                )
-            })?;
-        (load_snapshot(&state.db, base.id).await?, Some(base.id))
-    } else if let Some(active_id) = active_revision_id {
-        (load_snapshot(&state.db, active_id).await?, Some(active_id))
-    } else {
-        (HashMap::new(), None)
-    };
-
     let active_map = if let Some(active_id) = active_revision_id {
         load_snapshot(&state.db, active_id).await?
     } else {
         HashMap::new()
+    };
+
+    let (base_map, base_id) = if let Some(base_id) = base_revision_id {
+        if Some(base_id) == active_revision_id {
+            (active_map.clone(), Some(base_id))
+        } else {
+            let base = get_revision_for_project(&state.db, project.id, base_id)
+                .await?
+                .ok_or_else(|| {
+                    AppError::bad_request(
+                        "INVALID_BASE",
+                        "base revision does not belong to this project",
+                    )
+                })?;
+            (load_snapshot(&state.db, base.id).await?, Some(base.id))
+        }
+    } else if let Some(active_id) = active_revision_id {
+        (active_map.clone(), Some(active_id))
+    } else {
+        (HashMap::new(), None)
     };
 
     let mut incoming: HashMap<String, ContentBlob> = HashMap::new();
@@ -134,18 +138,20 @@ pub async fn propose_revision(
         ))
     };
 
+    let short_code = crate::short_id::generate_short_code();
     let mut tx = state.db.begin().await.map_err(AppError::from_db)?;
     let revision_id: Uuid = sqlx::query_scalar(
         r#"
         INSERT INTO revisions
-            (project_id, base_revision_id, merged_against_revision_id, status,
+            (project_id, short_code, base_revision_id, merged_against_revision_id, status,
              commit_message, author_user_id, author_api_key_id, token_added,
              token_removed, total_tokens, file_count, conflict_summary)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
         RETURNING id
         "#,
     )
     .bind(project.id)
+    .bind(&short_code)
     .bind(base_id)
     .bind(active_revision_id)
     .bind(status)

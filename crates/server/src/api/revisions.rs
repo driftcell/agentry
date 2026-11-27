@@ -1,3 +1,4 @@
+use crate::AppState;
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use chrono::{DateTime, Utc};
@@ -5,20 +6,19 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use crate::AppState;
-
 use super::projects::project_for_user;
 use crate::auth::WebUser;
 use crate::error::{AppError, Result};
 use crate::project::{Project, require_project_access};
 use crate::revisions::{
     self, Actor, FileSide, Resolution, Revision, RevisionFileView, RevisionStatus, approve,
-    get_revision, reject, revision_conflicts, revision_files, revision_is_stale,
+    get_revision_any, reject, revision_conflicts, revision_files, revision_is_stale,
 };
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub(super) struct RevisionListRow {
     id: Uuid,
+    short_code: String,
     project_slug: String,
     status: String,
     commit_message: String,
@@ -67,7 +67,7 @@ pub(super) async fn project_revisions(
     }
     let rows: Vec<RevisionListRow> = sqlx::query_as(
         r#"
-        SELECT r.id, p.slug AS project_slug, r.status, r.commit_message,
+        SELECT r.id, r.short_code, p.slug AS project_slug, r.status, r.commit_message,
                r.token_added, r.token_removed, r.total_tokens, r.file_count,
                r.created_at, r.updated_at,
                COALESCE(u.username, CASE WHEN k.key_prefix IS NOT NULL THEN 'key:' || k.key_prefix END, 'system') AS author,
@@ -107,9 +107,9 @@ pub(super) struct RevisionDetail {
 pub(super) async fn ensure_revision_access(
     state: &AppState,
     user: &WebUser,
-    revision_id: Uuid,
+    revision_ref: &str,
 ) -> Result<(Project, Revision)> {
-    let revision = get_revision(&state.db, revision_id)
+    let revision = get_revision_any(&state.db, revision_ref)
         .await?
         .ok_or_else(|| AppError::not_found("REVISION_NOT_FOUND", "revision not found"))?;
     let project = crate::project::load_project_by_id(&state.db, revision.project_id)
@@ -122,9 +122,9 @@ pub(super) async fn ensure_revision_access(
 pub(super) async fn revision_detail(
     user: WebUser,
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path(id): Path<String>,
 ) -> Result<Json<Value>> {
-    let (project, revision) = ensure_revision_access(&state, &user, id).await?;
+    let (project, revision) = ensure_revision_access(&state, &user, &id).await?;
     let files = revision_files(&state.db, &project, &revision).await?;
     let conflicts = revision_conflicts(&state.db, revision.id).await?;
     let stale = revision_is_stale(&project, &revision);
@@ -185,10 +185,10 @@ pub(super) fn default_side() -> String {
 pub(super) async fn revision_file(
     user: WebUser,
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path(id): Path<String>,
     Query(query): Query<RevisionFileQuery>,
 ) -> Result<Json<FileSide>> {
-    let (project, revision) = ensure_revision_access(&state, &user, id).await?;
+    let (project, revision) = ensure_revision_access(&state, &user, &id).await?;
     let side = revisions::file_side(&state, &project, &revision, &query.path, &query.side).await?;
     Ok(Json(side))
 }
@@ -204,7 +204,7 @@ pub(super) struct ApproveInput {
 pub(super) async fn approve_revision(
     user: WebUser,
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path(id): Path<String>,
     Json(input): Json<ApproveInput>,
 ) -> Result<Json<Value>> {
     if !user.is_admin() {
@@ -213,11 +213,11 @@ pub(super) async fn approve_revision(
             "human approval requires an admin user",
         ));
     }
-    let (project, _) = ensure_revision_access(&state, &user, id).await?;
+    let (project, rev) = ensure_revision_access(&state, &user, &id).await?;
     let revision = approve(
         &state,
         &project,
-        id,
+        rev.id,
         &user,
         input.comment.as_deref().unwrap_or(""),
         input.activate_now,
@@ -235,7 +235,7 @@ pub(super) struct RejectInput {
 pub(super) async fn rebase_revision(
     user: WebUser,
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path(id): Path<String>,
 ) -> Result<Json<Value>> {
     if !user.is_admin() {
         return Err(AppError::forbidden(
@@ -243,16 +243,16 @@ pub(super) async fn rebase_revision(
             "revision rebase requires an admin user",
         ));
     }
-    let (project, _) = ensure_revision_access(&state, &user, id).await?;
+    let (project, rev) = ensure_revision_access(&state, &user, &id).await?;
     let actor = Actor::from_web(&user);
-    let revision = revisions::rebase_revision(&state, &project, id, &actor).await?;
+    let revision = revisions::rebase_revision(&state, &project, rev.id, &actor).await?;
     Ok(Json(json!({"revision": revision})))
 }
 
 pub(super) async fn reject_revision(
     user: WebUser,
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path(id): Path<String>,
     Json(input): Json<RejectInput>,
 ) -> Result<Json<Value>> {
     if !user.is_admin() {
@@ -261,11 +261,11 @@ pub(super) async fn reject_revision(
             "human rejection requires an admin user",
         ));
     }
-    let (project, _) = ensure_revision_access(&state, &user, id).await?;
+    let (project, rev) = ensure_revision_access(&state, &user, &id).await?;
     let revision = reject(
         &state,
         &project,
-        id,
+        rev.id,
         &user,
         input.comment.as_deref().unwrap_or(""),
     )
@@ -292,7 +292,7 @@ pub(super) struct ResolveInput {
 pub(super) async fn resolve_revision(
     user: WebUser,
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path(id): Path<String>,
     Json(input): Json<ResolveInput>,
 ) -> Result<Json<Value>> {
     if !user.is_admin() {
@@ -301,7 +301,7 @@ pub(super) async fn resolve_revision(
             "conflict resolution requires an admin user",
         ));
     }
-    let (project, existing) = ensure_revision_access(&state, &user, id).await?;
+    let (project, existing) = ensure_revision_access(&state, &user, &id).await?;
     let commit_message = input
         .commit_message
         .filter(|m| !m.trim().is_empty())
@@ -316,8 +316,14 @@ pub(super) async fn resolve_revision(
         })
         .collect();
     let actor = Actor::from_web(&user);
-    let revision =
-        revisions::resolve_conflict(&state, &project, id, &actor, resolutions, &commit_message)
-            .await?;
+    let revision = revisions::resolve_conflict(
+        &state,
+        &project,
+        existing.id,
+        &actor,
+        resolutions,
+        &commit_message,
+    )
+    .await?;
     Ok(Json(json!({"revision": revision})))
 }

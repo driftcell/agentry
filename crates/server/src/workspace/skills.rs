@@ -1,6 +1,7 @@
 use std::collections::{BTreeSet, HashMap};
 
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use crate::content::blob_by_id;
 use crate::error::AppError;
@@ -16,6 +17,106 @@ pub struct SkillEntry {
     pub uri: String,
     pub blob_id: uuid::Uuid,
     pub skill: rmcp::model::Skill,
+}
+
+fn build_skill_entry(
+    project: &Project,
+    files: &HashMap<String, WorkspaceFile>,
+    name: &str,
+    blob_id: Uuid,
+    text: &str,
+) -> Option<SkillEntry> {
+    let root = format!("skills/{name}");
+    let skill_md_path = format!("{root}/SKILL.md");
+    let front = parse_frontmatter(text)?;
+    let name_value = front.value.get("name").and_then(|v| v.as_str())?;
+    let description = front.value.get("description").and_then(|v| v.as_str())?;
+
+    let mut extra = serde_json::Map::new();
+    if let serde_yaml_ng::Value::Mapping(mapping) = &front.value {
+        for (key, value) in mapping {
+            let Some(key) = key.as_str() else { continue };
+            if key == "name" || key == "description" {
+                continue;
+            }
+            if let Ok(value) = serde_json::to_value(value) {
+                extra.insert(key.to_string(), value);
+            }
+        }
+    }
+    let mut frontmatter =
+        rmcp::model::SkillFrontmatter::new(name_value.to_string(), description.to_string());
+    for (key, value) in extra {
+        frontmatter = frontmatter.with_field(key, value);
+    }
+
+    let mut resources = Vec::new();
+    let prefix = format!("{root}/");
+    let mut file_paths: Vec<&String> = files
+        .keys()
+        .filter(|path| path.starts_with(&prefix) || **path == skill_md_path)
+        .collect();
+    file_paths.sort();
+    for path in file_paths {
+        let Some(file) = files.get(path) else {
+            continue;
+        };
+        let relative = path.strip_prefix(&prefix).unwrap_or("SKILL.md");
+        let uri = if relative == "SKILL.md" {
+            skill_uri(&project.slug, name)
+        } else {
+            crate::paths::skill_file_uri(&project.slug, name, relative)
+        };
+        resources.push(rmcp::model::SkillResource::new(
+            uri,
+            format!("sha256:{}", file.sha256),
+            file.size_bytes.max(0) as u64,
+        ));
+    }
+
+    let skill = rmcp::model::Skill::new(
+        skill_uri(&project.slug, name),
+        frontmatter,
+        rmcp::model::SkillResources::Files(resources),
+    );
+    if skill.validate().is_err() {
+        tracing::warn!(project = %project.slug, skill = %name, "skipping invalid skill manifest");
+        return None;
+    }
+    Some(SkillEntry {
+        name: name.to_string(),
+        uri: skill.uri.clone(),
+        blob_id,
+        skill,
+    })
+}
+
+pub async fn collect_skill_entry(
+    db: &PgPool,
+    project: &Project,
+    files: &HashMap<String, WorkspaceFile>,
+    name: &str,
+) -> Result<Option<SkillEntry>, AppError> {
+    let skill_md_path = format!("skills/{name}/SKILL.md");
+    let Some(workspace_file) = files.get(&skill_md_path) else {
+        return Ok(None);
+    };
+    let Some(blob) = blob_by_id(db, workspace_file.blob_id)
+        .await
+        .map_err(|e| AppError::internal(format!("load skill blob: {e}")))?
+    else {
+        return Ok(None);
+    };
+    let Some(text) = blob.text_content.as_deref() else {
+        return Ok(None);
+    };
+    Ok(build_skill_entry(
+        project,
+        files,
+        name,
+        workspace_file.blob_id,
+        text,
+    ))
 }
 
 pub async fn collect_skill_entries(
@@ -37,88 +138,44 @@ pub async fn collect_skill_entries(
         }
     }
 
+    let blob_ids: Vec<Uuid> = names
+        .iter()
+        .filter_map(|name| {
+            files
+                .get(&format!("skills/{name}/SKILL.md"))
+                .map(|f| f.blob_id)
+        })
+        .collect();
+    if blob_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let rows: Vec<(Uuid, Option<String>)> = sqlx::query_as(
+        "SELECT id, text_content FROM content_blobs WHERE id = ANY($1) AND is_text = true",
+    )
+    .bind(&blob_ids)
+    .fetch_all(db)
+    .await
+    .map_err(|e| AppError::internal(format!("batch load skill blobs: {e}")))?;
+
+    let texts: HashMap<Uuid, String> = rows
+        .into_iter()
+        .filter_map(|(id, text)| text.map(|t| (id, t)))
+        .collect();
+
     let mut skills = Vec::new();
     for name in names {
-        let root = format!("skills/{name}");
-        let skill_md_path = format!("{root}/SKILL.md");
+        let skill_md_path = format!("skills/{name}/SKILL.md");
         let Some(workspace_file) = files.get(&skill_md_path) else {
             continue;
         };
-        let Some(blob) = blob_by_id(db, workspace_file.blob_id)
-            .await
-            .map_err(|e| AppError::internal(format!("load skill blob: {e}")))?
-        else {
+        let Some(text) = texts.get(&workspace_file.blob_id) else {
             continue;
         };
-        let Some(text) = blob.text_content.as_deref() else {
-            continue;
-        };
-        let Some(front) = parse_frontmatter(text) else {
-            continue;
-        };
-        let Some(name_value) = front.value.get("name").and_then(|v| v.as_str()) else {
-            continue;
-        };
-        let Some(description) = front.value.get("description").and_then(|v| v.as_str()) else {
-            continue;
-        };
-        let mut extra = serde_json::Map::new();
-        if let serde_yaml_ng::Value::Mapping(mapping) = &front.value {
-            for (key, value) in mapping {
-                let Some(key) = key.as_str() else { continue };
-                if key == "name" || key == "description" {
-                    continue;
-                }
-                if let Ok(value) = serde_json::to_value(value) {
-                    extra.insert(key.to_string(), value);
-                }
-            }
+        if let Some(entry) = build_skill_entry(project, files, &name, workspace_file.blob_id, text)
+        {
+            skills.push(entry);
         }
-        let mut frontmatter =
-            rmcp::model::SkillFrontmatter::new(name_value.to_string(), description.to_string());
-        for (key, value) in extra {
-            frontmatter = frontmatter.with_field(key, value);
-        }
-
-        let mut resources = Vec::new();
-        let prefix = format!("{root}/");
-        let mut file_paths: Vec<&String> = files
-            .keys()
-            .filter(|path| path.starts_with(&prefix) || **path == skill_md_path)
-            .collect();
-        file_paths.sort();
-        for path in file_paths {
-            let Some(file) = files.get(path) else {
-                continue;
-            };
-            let relative = path.strip_prefix(&prefix).unwrap_or("SKILL.md");
-            let uri = if relative == "SKILL.md" {
-                skill_uri(&project.slug, &name)
-            } else {
-                crate::paths::skill_file_uri(&project.slug, &name, relative)
-            };
-            resources.push(rmcp::model::SkillResource::new(
-                uri,
-                format!("sha256:{}", file.sha256),
-                file.size_bytes.max(0) as u64,
-            ));
-        }
-
-        let skill = rmcp::model::Skill::new(
-            skill_uri(&project.slug, &name),
-            frontmatter,
-            rmcp::model::SkillResources::Files(resources),
-        );
-        if skill.validate().is_err() {
-            tracing::warn!(project = %project.slug, skill = %name, "skipping invalid skill manifest");
-            continue;
-        }
-        skills.push(SkillEntry {
-            name: name.clone(),
-            uri: skill.uri.clone(),
-            blob_id: workspace_file.blob_id,
-            skill,
-        });
     }
     Ok(skills)
 }

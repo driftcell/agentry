@@ -161,10 +161,7 @@ impl super::ReadServer {
                         .strip_prefix(&format!("skills/{name}/"))
                         .unwrap_or(dir)
                         .trim_end_matches('/');
-                    let uri = format!(
-                        "{}/",
-                        crate::paths::skill_file_uri(&project.slug, name, relative)
-                    );
+                    let uri = crate::paths::skill_file_uri(&project.slug, name, relative);
                     rmcp::model::Resource::new(uri, relative.to_string())
                         .with_mime_type(rmcp::model::DIRECTORY_MIME_TYPE)
                 })

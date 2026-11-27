@@ -87,7 +87,7 @@ pub(super) async fn load_revision_for_update(
 ) -> Result<Revision, AppError> {
     sqlx::query_as::<_, Revision>(
         r#"
-        SELECT id, project_id, base_revision_id, merged_against_revision_id, status,
+        SELECT id, short_code, project_id, base_revision_id, merged_against_revision_id, status,
                commit_message, author_user_id, author_api_key_id, token_added,
                token_removed, total_tokens, file_count, conflict_summary,
                review_comment, reviewed_by, reviewed_at, activated_at,
@@ -105,7 +105,7 @@ pub(super) async fn load_revision_for_update(
 pub async fn get_revision(db: &PgPool, revision_id: Uuid) -> Result<Option<Revision>, AppError> {
     sqlx::query_as::<_, Revision>(
         r#"
-        SELECT id, project_id, base_revision_id, merged_against_revision_id, status,
+        SELECT id, short_code, project_id, base_revision_id, merged_against_revision_id, status,
                commit_message, author_user_id, author_api_key_id, token_added,
                token_removed, total_tokens, file_count, conflict_summary,
                review_comment, reviewed_by, reviewed_at, activated_at,
@@ -307,6 +307,64 @@ pub async fn file_side(
     }
 }
 
+pub async fn get_revision_by_ref(
+    db: &PgPool,
+    project_id: Uuid,
+    id_or_code: &str,
+) -> Result<Option<Revision>, AppError> {
+    match crate::short_id::IdRef::parse(id_or_code) {
+        Ok(crate::short_id::IdRef::Uuid(id)) => get_revision_for_project(db, project_id, id).await,
+        Ok(crate::short_id::IdRef::ShortCode(code)) => sqlx::query_as::<_, Revision>(
+            r#"
+            SELECT id, short_code, project_id, base_revision_id, merged_against_revision_id, status,
+                   commit_message, author_user_id, author_api_key_id, token_added,
+                   token_removed, total_tokens, file_count, conflict_summary,
+                   review_comment, reviewed_by, reviewed_at, activated_at,
+                   created_at, updated_at
+            FROM revisions WHERE project_id = $1 AND short_code = $2
+            "#,
+        )
+        .bind(project_id)
+        .bind(code)
+        .fetch_optional(db)
+        .await
+        .map_err(AppError::from_db),
+        Err(msg) => Err(AppError::bad_request("INVALID_ARGUMENT", msg)),
+    }
+}
+
+pub async fn get_revision_any(db: &PgPool, id_or_code: &str) -> Result<Option<Revision>, AppError> {
+    match crate::short_id::IdRef::parse(id_or_code) {
+        Ok(crate::short_id::IdRef::Uuid(id)) => get_revision(db, id).await,
+        Ok(crate::short_id::IdRef::ShortCode(code)) => sqlx::query_as::<_, Revision>(
+            r#"
+            SELECT id, short_code, project_id, base_revision_id, merged_against_revision_id, status,
+                   commit_message, author_user_id, author_api_key_id, token_added,
+                   token_removed, total_tokens, file_count, conflict_summary,
+                   review_comment, reviewed_by, reviewed_at, activated_at,
+                   created_at, updated_at
+            FROM revisions WHERE short_code = $1 ORDER BY created_at DESC LIMIT 1
+            "#,
+        )
+        .bind(code)
+        .fetch_optional(db)
+        .await
+        .map_err(AppError::from_db),
+        Err(msg) => Err(AppError::bad_request("INVALID_ARGUMENT", msg)),
+    }
+}
+
+pub async fn get_revision_for_tool_ref(
+    db: &PgPool,
+    project: &Project,
+    id_or_code: &str,
+) -> Result<Revision, ToolError> {
+    get_revision_by_ref(db, project.id, id_or_code)
+        .await
+        .map_err(ToolError::from)?
+        .ok_or_else(|| ToolError::not_found("revision not found"))
+}
+
 pub async fn get_revision_for_tool(
     db: &PgPool,
     project: &Project,
@@ -322,7 +380,7 @@ pub async fn get_revision_for_tool(
 pub async fn list_review_queue(db: &PgPool, project_id: Uuid) -> Result<Vec<Revision>, AppError> {
     let rows = sqlx::query_as::<_, Revision>(
         r#"
-        SELECT id, project_id, base_revision_id, merged_against_revision_id, status,
+        SELECT id, short_code, project_id, base_revision_id, merged_against_revision_id, status,
                commit_message, author_user_id, author_api_key_id, token_added,
                token_removed, total_tokens, file_count, conflict_summary,
                review_comment, reviewed_by, reviewed_at, activated_at,
@@ -347,7 +405,7 @@ pub async fn list_recent_revisions(
     let rows = if let Some(project_id) = project_id {
         sqlx::query_as::<_, Revision>(
             r#"
-            SELECT id, project_id, base_revision_id, merged_against_revision_id, status,
+            SELECT id, short_code, project_id, base_revision_id, merged_against_revision_id, status,
                    commit_message, author_user_id, author_api_key_id, token_added,
                    token_removed, total_tokens, file_count, conflict_summary,
                    review_comment, reviewed_by, reviewed_at, activated_at,
@@ -363,7 +421,7 @@ pub async fn list_recent_revisions(
     } else {
         sqlx::query_as::<_, Revision>(
             r#"
-            SELECT id, project_id, base_revision_id, merged_against_revision_id, status,
+            SELECT id, short_code, project_id, base_revision_id, merged_against_revision_id, status,
                    commit_message, author_user_id, author_api_key_id, token_added,
                    token_removed, total_tokens, file_count, conflict_summary,
                    review_comment, reviewed_by, reviewed_at, activated_at,

@@ -65,6 +65,7 @@ async fn rebasing_a_stale_pending_revision_updates_it_in_place() {
         .await
         .unwrap();
     let stale_id = stale["revision_id"].as_str().unwrap().to_string();
+    let stale_uuid = stale["revision_uuid"].as_str().unwrap().to_string();
 
     app.web(
         &cookie,
@@ -97,7 +98,8 @@ async fn rebasing_a_stale_pending_revision_updates_it_in_place() {
             None,
         )
         .await;
-    assert_eq!(rebased["revision"]["id"], stale_id);
+    assert_eq!(rebased["revision"]["id"], stale_uuid);
+    assert_eq!(rebased["revision"]["short_code"], stale_id);
     assert_eq!(rebased["revision"]["status"], "pending_review");
 
     let after = app

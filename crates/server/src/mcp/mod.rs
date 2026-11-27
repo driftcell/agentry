@@ -11,7 +11,7 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use rmcp::RoleServer;
 use rmcp::service::RequestContext;
-use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+use rmcp::transport::streamable_http_server::session::never::NeverSessionManager;
 use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
 
 use crate::AppState;
@@ -26,7 +26,7 @@ pub fn mcp_router(state: AppState) -> Router<AppState> {
             let state = state.clone();
             move || Ok(read::ReadServer::new(state.clone()))
         },
-        Arc::new(LocalSessionManager::default()),
+        Arc::new(NeverSessionManager::default()),
         streamable_config(&state),
     );
     let admin_service = StreamableHttpService::new(
@@ -34,7 +34,7 @@ pub fn mcp_router(state: AppState) -> Router<AppState> {
             let state = state.clone();
             move || Ok(admin::AdminServer::new(state.clone()))
         },
-        Arc::new(LocalSessionManager::default()),
+        Arc::new(NeverSessionManager::default()),
         streamable_config(&state),
     );
 
@@ -154,5 +154,32 @@ pub fn parse_args<T: serde::de::DeserializeOwned>(
 }
 
 pub fn tool_json(value: serde_json::Value) -> rmcp::model::CallToolResult {
-    rmcp::model::CallToolResult::success(vec![rmcp::model::ContentBlock::text(value.to_string())])
+    let text = value.to_string();
+    let mut res = rmcp::model::CallToolResult::success(vec![rmcp::model::ContentBlock::text(text)]);
+    res.structured_content = Some(value);
+    res
+}
+
+pub fn tool_dual<T: askama::Template + serde::Serialize>(
+    output: &T,
+) -> Result<rmcp::model::CallToolResult, ToolError> {
+    tool_dual_with_links(output, Vec::new())
+}
+
+pub fn tool_dual_with_links<T: askama::Template + serde::Serialize>(
+    output: &T,
+    links: Vec<rmcp::model::Resource>,
+) -> Result<rmcp::model::CallToolResult, ToolError> {
+    let markdown = output
+        .render()
+        .map_err(|e| ToolError::internal(format!("render tool template: {e}")))?;
+    let structured = serde_json::to_value(output)
+        .map_err(|e| ToolError::internal(format!("serialize tool output: {e}")))?;
+    let mut content = vec![rmcp::model::ContentBlock::text(markdown)];
+    for resource in links {
+        content.push(rmcp::model::ContentBlock::resource_link(resource));
+    }
+    let mut res = rmcp::model::CallToolResult::success(content);
+    res.structured_content = Some(structured);
+    Ok(res)
 }

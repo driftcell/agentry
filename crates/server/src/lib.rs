@@ -11,6 +11,7 @@ pub mod paths;
 pub mod project;
 pub mod revisions;
 pub mod seed;
+pub mod short_id;
 pub mod stats;
 pub mod storage;
 pub mod tokens;

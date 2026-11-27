@@ -1,10 +1,6 @@
 use std::io::Write;
 use std::time::Duration;
 
-use flate2::Compression;
-use flate2::write::GzEncoder;
-use serde_json::{Value, json};
-
 use crate::content::blob_by_id;
 use crate::error::ToolError;
 use crate::markdown::{Outline, OutlineSection, render_outline};
@@ -14,15 +10,18 @@ use crate::paths::{
 use crate::project::ProjectContext;
 use crate::tokens::{count_tokens, truncate_to_tokens};
 use crate::workspace::{KindFilter, load_active_files, render_tree};
+use flate2::Compression;
+use flate2::write::GzEncoder;
 
 use super::args::*;
+use super::outputs::*;
 
 impl super::ReadServer {
     pub(super) async fn inspect_workspace(
         &self,
         ctx: &ProjectContext,
         args: InspectArgs,
-    ) -> Result<Value, ToolError> {
+    ) -> Result<InspectOutput, ToolError> {
         let project = ctx.project()?;
         let filter = KindFilter::parse(args.kind_filter.as_deref())?;
         let files = load_active_files(&self.state.db, project)
@@ -31,20 +30,31 @@ impl super::ReadServer {
         let mut summary = render_tree(&files, filter);
         summary.project = project.slug.clone();
         summary.revision_id = project.active_revision_id;
-        Ok(json!({
-            "project": summary.project,
-            "revision": summary.revision_id,
-            "files": summary.files,
-            "tokens": summary.tokens,
-            "tree": summary.tree,
-        }))
+        let revision_code = if let Some(rev_id) = project.active_revision_id {
+            sqlx::query_scalar::<_, String>("SELECT short_code FROM revisions WHERE id = $1")
+                .bind(rev_id)
+                .fetch_optional(&self.state.db)
+                .await
+                .map_err(|e| ToolError::internal(format!("load revision short_code: {e}")))?
+                .unwrap_or_else(|| rev_id.to_string())
+        } else {
+            "none".to_string()
+        };
+        Ok(InspectOutput {
+            project: summary.project,
+            revision: revision_code,
+            revision_uuid: summary.revision_id,
+            files: summary.files,
+            tokens: summary.tokens,
+            tree: summary.tree,
+        })
     }
 
     pub(super) async fn read_slice(
         &self,
         ctx: &ProjectContext,
         args: ReadSliceArgs,
-    ) -> Result<Value, ToolError> {
+    ) -> Result<ReadSliceOutput, ToolError> {
         let project = ctx.project()?;
         let path = normalize_path(&args.path).map_err(ToolError::bad_request)?;
         let files = load_active_files(&self.state.db, project)
@@ -69,6 +79,13 @@ impl super::ReadServer {
             .unwrap_or_else(|| count_tokens(&text) as i32);
         let mode = args.mode;
 
+        let max_tokens = args.max_tokens.unwrap_or(20_000);
+        if max_tokens == 0 || max_tokens > 200_000 {
+            return Err(ToolError::bad_request(
+                "max_tokens must be between 1 and 200000",
+            ));
+        }
+
         match mode {
             ReadMode::Outline => {
                 let outline = blob
@@ -82,15 +99,17 @@ impl super::ReadServer {
                     });
                 let content = render_outline(&outline);
                 let returned_tokens = count_tokens(&content);
-                Ok(json!({
-                    "path": path,
-                    "mode": "outline",
-                    "tokens": returned_tokens,
-                    "file_tokens": file_tokens,
-                    "truncated": false,
-                    "sections": outline.sections.len(),
-                    "content": content,
-                }))
+                Ok(ReadSliceOutput {
+                    path,
+                    mode: "outline".to_string(),
+                    section: None,
+                    tokens: returned_tokens,
+                    file_tokens,
+                    truncated: false,
+                    max_tokens: None,
+                    sections: Some(outline.sections.len()),
+                    content,
+                })
             }
             ReadMode::Section => {
                 let query = args.section.as_deref().ok_or_else(|| {
@@ -103,55 +122,78 @@ impl super::ReadServer {
                     .ok_or_else(|| {
                         ToolError::new("NOT_MARKDOWN", "this file has no Markdown outline")
                     })?;
-                let section = find_outline_section(&outline, query).ok_or_else(|| {
-                    let available = outline
-                        .sections
-                        .iter()
-                        .take(12)
-                        .map(|s| s.title.as_str())
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    ToolError::new(
-                        "SECTION_NOT_FOUND",
-                        format!("no section named {query:?}; available: {available}"),
-                    )
-                })?;
                 let lines: Vec<&str> = text.split('\n').collect();
-                let start = section.line.saturating_sub(1).min(lines.len());
-                let end = section.end_line.saturating_sub(1).min(lines.len());
-                let content = lines[start..end].join("\n");
-                Ok(json!({
-                    "path": path,
-                    "mode": "section",
-                    "section": section.title,
-                    "tokens": section.tokens,
-                    "file_tokens": file_tokens,
-                    "truncated": false,
-                    "content": content,
-                }))
+                let (section_title, raw_content, raw_tokens) =
+                    if query.eq_ignore_ascii_case("__preamble__") {
+                        let end = outline
+                            .sections
+                            .first()
+                            .map(|s| s.line.saturating_sub(1))
+                            .unwrap_or(lines.len())
+                            .min(lines.len());
+                        (
+                            "__preamble__".to_string(),
+                            lines[..end].join("\n"),
+                            outline.preamble_tokens,
+                        )
+                    } else {
+                        let section = find_outline_section(&outline, query).ok_or_else(|| {
+                            let available = outline
+                                .sections
+                                .iter()
+                                .take(12)
+                                .map(|s| s.title.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            ToolError::new(
+                                "SECTION_NOT_FOUND",
+                                format!("no section named {query:?}; available: {available}"),
+                            )
+                        })?;
+                        let start = section.line.saturating_sub(1).min(lines.len());
+                        let end = section.end_line.saturating_sub(1).min(lines.len());
+                        (
+                            section.title.clone(),
+                            lines[start..end].join("\n"),
+                            section.tokens,
+                        )
+                    };
+                let (content, returned_tokens, truncated) = if raw_tokens > max_tokens {
+                    let (content, returned) = truncate_to_tokens(&raw_content, max_tokens);
+                    (content, returned, true)
+                } else {
+                    (raw_content, raw_tokens, false)
+                };
+                Ok(ReadSliceOutput {
+                    path,
+                    mode: "section".to_string(),
+                    section: Some(section_title),
+                    tokens: returned_tokens,
+                    file_tokens,
+                    truncated,
+                    max_tokens: truncated.then_some(max_tokens),
+                    sections: None,
+                    content,
+                })
             }
             ReadMode::Full => {
-                let max_tokens = args.max_tokens.unwrap_or(20_000);
-                if max_tokens == 0 || max_tokens > 200_000 {
-                    return Err(ToolError::bad_request(
-                        "max_tokens must be between 1 and 200000",
-                    ));
-                }
                 let (content, returned_tokens, truncated) = if file_tokens as usize > max_tokens {
                     let (content, returned) = truncate_to_tokens(&text, max_tokens);
                     (content, returned, true)
                 } else {
                     (text, file_tokens as usize, false)
                 };
-                Ok(json!({
-                    "path": path,
-                    "mode": "full",
-                    "tokens": returned_tokens,
-                    "file_tokens": file_tokens,
-                    "truncated": truncated,
-                    "max_tokens": max_tokens,
-                    "content": content,
-                }))
+                Ok(ReadSliceOutput {
+                    path,
+                    mode: "full".to_string(),
+                    section: None,
+                    tokens: returned_tokens,
+                    file_tokens,
+                    truncated,
+                    max_tokens: Some(max_tokens),
+                    sections: None,
+                    content,
+                })
             }
         }
     }
@@ -160,7 +202,7 @@ impl super::ReadServer {
         &self,
         ctx: &ProjectContext,
         args: BundleArgs,
-    ) -> Result<Value, ToolError> {
+    ) -> Result<PullBundleOutput, ToolError> {
         let project = ctx.project()?;
         let files = load_active_files(&self.state.db, project)
             .await
@@ -296,17 +338,21 @@ impl super::ReadServer {
         .await;
 
         let command = bundle_command(format, &url, &local_target, &suggested_name);
-        Ok(json!({
-            "format": match format { BundleFormat::TarGz => "tar_gz", BundleFormat::Single => "single" },
-            "url": url,
-            "expires_at": expires.to_rfc3339(),
-            "files": selected,
-            "file_count": selected.len(),
-            "bytes": total_bytes,
-            "tokens": total_tokens,
-            "local_target_dir": local_target,
-            "command": command,
-        }))
+        Ok(PullBundleOutput {
+            format: match format {
+                BundleFormat::TarGz => "tar_gz",
+                BundleFormat::Single => "single",
+            }
+            .to_string(),
+            url,
+            expires_at: expires.to_rfc3339(),
+            file_count: selected.len(),
+            files: selected,
+            bytes: total_bytes,
+            tokens: total_tokens,
+            local_target_dir: local_target,
+            command,
+        })
     }
 }
 

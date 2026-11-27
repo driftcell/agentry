@@ -46,8 +46,8 @@ async fn concurrent_activations_keep_one_pointer_and_one_active_revision() {
         )
         .await
         .expect("proposal b");
-    let a = uuid::Uuid::parse_str(first["revision_id"].as_str().unwrap()).unwrap();
-    let b = uuid::Uuid::parse_str(second["revision_id"].as_str().unwrap()).unwrap();
+    let a = uuid::Uuid::parse_str(first["revision_uuid"].as_str().unwrap()).unwrap();
+    let b = uuid::Uuid::parse_str(second["revision_uuid"].as_str().unwrap()).unwrap();
     for id in [a, b] {
         app.web(
             &cookie,

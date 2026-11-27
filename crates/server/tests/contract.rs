@@ -48,7 +48,14 @@ async fn read_contract_fields_digests_tokens_and_size_stay_stable() {
         .unwrap();
     assert_eq!(
         keys(&tree),
-        vec!["files", "project", "revision", "tokens", "tree"]
+        vec![
+            "files",
+            "project",
+            "revision",
+            "revision_uuid",
+            "tokens",
+            "tree"
+        ]
     );
     assert!(tree.to_string().len() < 8_000);
     assert!(tree["tree"].as_str().unwrap().contains("CLAUDE.md"));
@@ -110,11 +117,17 @@ async fn read_contract_fields_digests_tokens_and_size_stay_stable() {
     for required in ["uri", "name", "mimeType", "size"] {
         assert!(first.get(required).is_some(), "missing {required}");
     }
-    assert!(
-        keys(first)
-            .iter()
-            .all(|k| ["uri", "name", "mimeType", "size", "description"].contains(&k.as_str()))
-    );
+    assert!(keys(first).iter().all(|k| {
+        [
+            "uri",
+            "name",
+            "mimeType",
+            "size",
+            "description",
+            "annotations",
+        ]
+        .contains(&k.as_str())
+    }));
     assert!(first["uri"].as_str().unwrap().starts_with("mcp://default/"));
 
     let skills = app

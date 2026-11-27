@@ -14,6 +14,7 @@ use crate::stats;
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub(super) struct RecentRow {
     id: Uuid,
+    short_code: String,
     project_slug: String,
     project_name: String,
     status: String,
@@ -107,7 +108,7 @@ pub(super) async fn dashboard(
 
     let recent: Vec<RecentRow> = sqlx::query_as(
         r#"
-        SELECT r.id, p.slug AS project_slug, p.name AS project_name, r.status,
+        SELECT r.id, r.short_code, p.slug AS project_slug, p.name AS project_name, r.status,
                r.commit_message, r.token_added, r.token_removed, r.total_tokens,
                r.created_at,
                COALESCE(u.username, CASE WHEN k.key_prefix IS NOT NULL THEN 'key:' || k.key_prefix END, 'system') AS author,

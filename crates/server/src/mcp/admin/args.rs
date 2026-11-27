@@ -1,7 +1,5 @@
 use schemars::JsonSchema;
 use serde::Deserialize;
-use uuid::Uuid;
-
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(super) struct StageArgs {
@@ -30,13 +28,13 @@ pub(super) struct ProposeArgs {
     #[serde(default, alias = "project")]
     pub(super) project_slug: Option<String>,
     #[serde(default)]
-    pub(super) session_id: Option<Uuid>,
+    pub(super) session_id: Option<String>,
     #[serde(default)]
     pub(super) inline_patches: Option<Vec<InlinePatch>>,
     #[serde(default)]
     pub(super) deletions: Option<Vec<String>>,
     #[serde(default)]
-    pub(super) base_revision_id: Option<Uuid>,
+    pub(super) base_revision_id: Option<String>,
     pub(super) commit_message: String,
 }
 
@@ -56,7 +54,7 @@ pub(super) struct InlinePatch {
 pub(super) struct StatusArgs {
     #[serde(default, alias = "project")]
     pub(super) project_slug: Option<String>,
-    pub(super) revision_id: Uuid,
+    pub(super) revision_id: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -64,7 +62,7 @@ pub(super) struct StatusArgs {
 pub(super) struct ActivateArgs {
     #[serde(default, alias = "project")]
     pub(super) project_slug: Option<String>,
-    pub(super) revision_id: Uuid,
+    pub(super) revision_id: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -72,7 +70,7 @@ pub(super) struct ActivateArgs {
 pub(super) struct RebaseArgs {
     #[serde(default, alias = "project")]
     pub(super) project_slug: Option<String>,
-    pub(super) revision_id: Uuid,
+    pub(super) revision_id: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -80,7 +78,7 @@ pub(super) struct RebaseArgs {
 pub(super) struct ResolveArgs {
     #[serde(default, alias = "project")]
     pub(super) project_slug: Option<String>,
-    pub(super) revision_id: Uuid,
+    pub(super) revision_id: String,
     pub(super) resolutions: Vec<ResolutionInput>,
     pub(super) commit_message: String,
 }
@@ -117,7 +115,7 @@ pub(super) struct PlatformArgs {
     #[serde(default)]
     pub(super) token_budget: Option<i64>,
     #[serde(default)]
-    pub(super) user_id: Option<Uuid>,
+    pub(super) user_id: Option<String>,
     #[serde(default)]
     pub(super) project_slug: Option<String>,
     #[serde(default)]
@@ -125,5 +123,5 @@ pub(super) struct PlatformArgs {
     #[serde(default)]
     pub(super) is_global: Option<bool>,
     #[serde(default)]
-    pub(super) api_key_id: Option<Uuid>,
+    pub(super) api_key_id: Option<String>,
 }

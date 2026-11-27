@@ -60,15 +60,29 @@ impl super::AdminServer {
                 scopes.dedup();
                 validate_scopes(&scopes)?;
                 let is_global = args.is_global.unwrap_or(false);
-                let target_user = args.user_id.unwrap_or(ctx.key.user_id);
-                let exists: Option<i32> = sqlx::query_scalar("SELECT 1 FROM users WHERE id = $1")
-                    .bind(target_user)
-                    .fetch_optional(&self.state.db)
-                    .await
-                    .map_err(|e| ToolError::internal(format!("load user: {e}")))?;
-                if exists.is_none() {
-                    return Err(ToolError::bad_request("target user does not exist"));
-                }
+                let target_user = if let Some(ref user_ref) = args.user_id {
+                    if let Ok(uuid) = Uuid::parse_str(user_ref.trim()) {
+                        let exists: Option<Uuid> =
+                            sqlx::query_scalar("SELECT id FROM users WHERE id = $1")
+                                .bind(uuid)
+                                .fetch_optional(&self.state.db)
+                                .await
+                                .map_err(|e| ToolError::internal(format!("load user: {e}")))?;
+                        exists
+                            .ok_or_else(|| ToolError::bad_request("target user does not exist"))?
+                    } else {
+                        let by_name: Option<Uuid> =
+                            sqlx::query_scalar("SELECT id FROM users WHERE username = $1")
+                                .bind(user_ref.trim())
+                                .fetch_optional(&self.state.db)
+                                .await
+                                .map_err(|e| ToolError::internal(format!("load user: {e}")))?;
+                        by_name
+                            .ok_or_else(|| ToolError::bad_request("target user does not exist"))?
+                    }
+                } else {
+                    ctx.key.user_id
+                };
                 if (target_user != ctx.key.user_id
                     || is_global
                     || scopes.iter().any(|s| s == "admin:platform"))
@@ -114,16 +128,29 @@ impl super::AdminServer {
                 }))
             }
             PlatformAction::RevokeApiKey => {
-                let key_id = args.api_key_id.ok_or_else(|| {
+                let key_ref = args.api_key_id.as_deref().ok_or_else(|| {
                     ToolError::bad_request("api_key_id is required for revoke_api_key")
                 })?;
-                let row: Option<(Uuid, Option<Uuid>, bool)> = sqlx::query_as(
-                    "SELECT id, default_project_id, is_global FROM api_keys WHERE id = $1",
-                )
-                .bind(key_id)
-                .fetch_optional(&self.state.db)
-                .await
-                .map_err(|e| ToolError::internal(format!("load api key: {e}")))?;
+                let row: Option<(Uuid, Option<Uuid>, bool)> = if let Ok(uuid) =
+                    Uuid::parse_str(key_ref.trim())
+                {
+                    sqlx::query_as(
+                        "SELECT id, default_project_id, is_global FROM api_keys WHERE id = $1",
+                    )
+                    .bind(uuid)
+                    .fetch_optional(&self.state.db)
+                    .await
+                    .map_err(|e| ToolError::internal(format!("load api key: {e}")))?
+                } else {
+                    sqlx::query_as(
+                        "SELECT id, default_project_id, is_global FROM api_keys WHERE key_prefix = $1",
+                    )
+                    .bind(key_ref.trim())
+                    .fetch_optional(&self.state.db)
+                    .await
+                    .map_err(|e| ToolError::internal(format!("load api key: {e}")))?
+                };
+
                 let (id, default_project, is_global) =
                     row.ok_or_else(|| ToolError::not_found("API key not found"))?;
                 if !ctx.key.is_global {
