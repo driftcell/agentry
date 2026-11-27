@@ -26,7 +26,7 @@ export function RevisionConfirmDialogs() {
             <div>
               项目：<span className="font-semibold">{project.slug}</span>
             </div>
-            <div>版本：{shortUuid(revision.id, 12)}</div>
+            <div>版本：{revision.short_code ? `${revision.short_code} (${shortUuid(revision.id, 8)})` : shortUuid(revision.id, 12)}</div>
             <TokenDelta added={revision.token_added} removed={revision.token_removed} />
           </div>
         }

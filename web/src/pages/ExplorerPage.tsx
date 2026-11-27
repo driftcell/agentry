@@ -81,7 +81,7 @@ function ExplorerShell() {
               onFocus={() => actions.prefetchRevision(activeRevision.id)}
             >
               <span style={{ viewTransitionName: "revision-identity" }}>
-                当前版本 {shortUuid(activeRevision.id)}
+                当前版本 {activeRevision.short_code || shortUuid(activeRevision.id)}
               </span>
               <span className="text-ink-muted">·</span>
               <span className="mono-num">

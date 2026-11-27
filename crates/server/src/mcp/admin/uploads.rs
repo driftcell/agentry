@@ -26,7 +26,7 @@ impl super::AdminServer {
         let paths: Vec<String> = args.files.iter().map(|f| f.remote_path.clone()).collect();
         let normalized = normalize_path_set(&paths).map_err(ToolError::bad_request)?;
         let session_id = Uuid::new_v4();
-        let session_short_code = crate::short_id::generate_short_code();
+
         let expires_at = chrono::Utc::now()
             + chrono::Duration::seconds(self.state.config.transfer_ttl.as_secs() as i64);
         let mut staged = Vec::new();
@@ -93,23 +93,36 @@ impl super::AdminServer {
         }
         let files_json = serde_json::to_value(&staged)
             .map_err(|e| ToolError::internal(format!("serialize session: {e}")))?;
-        sqlx::query(
-            r#"
-            INSERT INTO transfer_sessions
-                (id, short_code, project_id, user_id, api_key_id, status, files, expires_at)
-            VALUES ($1, $2, $3, $4, $5, 'open', $6, $7)
-            "#,
-        )
-        .bind(session_id)
-        .bind(&session_short_code)
-        .bind(project.id)
-        .bind(ctx.key.user_id)
-        .bind(ctx.key.api_key_id)
-        .bind(sqlx::types::Json(files_json))
-        .bind(expires_at)
-        .execute(&self.state.db)
-        .await
-        .map_err(|e| ToolError::internal(format!("create transfer session: {e}")))?;
+        let mut session_short_code: Option<String> = None;
+        for _ in 0..3 {
+            let candidate = crate::short_id::generate_short_code();
+            let inserted: Option<Uuid> = sqlx::query_scalar(
+                r#"
+                INSERT INTO transfer_sessions
+                    (id, short_code, project_id, user_id, api_key_id, status, files, expires_at)
+                VALUES ($1, $2, $3, $4, $5, 'open', $6, $7)
+                ON CONFLICT (project_id, short_code) DO NOTHING
+                RETURNING id
+                "#,
+            )
+            .bind(session_id)
+            .bind(&candidate)
+            .bind(project.id)
+            .bind(ctx.key.user_id)
+            .bind(ctx.key.api_key_id)
+            .bind(sqlx::types::Json(&files_json))
+            .bind(expires_at)
+            .fetch_optional(&self.state.db)
+            .await
+            .map_err(|e| ToolError::internal(format!("create transfer session: {e}")))?;
+            if inserted.is_some() {
+                session_short_code = Some(candidate);
+                break;
+            }
+        }
+        let session_short_code = session_short_code.ok_or_else(|| {
+            ToolError::internal("could not allocate a unique transfer session short_code")
+        })?;
 
         let command = commands.join("\n");
         Ok(StageOutput {

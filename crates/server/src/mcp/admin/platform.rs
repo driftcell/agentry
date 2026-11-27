@@ -7,13 +7,14 @@ use crate::paths::validate_slug;
 use crate::project::{ProjectContext, resolve_tool_project};
 
 use super::args::*;
+use super::outputs::{PlatformOutput, PlatformUserView};
 
 impl super::AdminServer {
     pub(super) async fn manage_platform(
         &self,
         ctx: &ProjectContext,
         args: PlatformArgs,
-    ) -> Result<Value, ToolError> {
+    ) -> Result<PlatformOutput, ToolError> {
         ctx.require_scope("admin:platform")?;
         match args.action {
             PlatformAction::CreateProject => {
@@ -49,7 +50,14 @@ impl super::AdminServer {
                     json!({"project_id": id, "slug": slug}),
                 )
                 .await;
-                Ok(json!({"project_id": id, "slug": slug, "name": name, "active_revision": null}))
+                Ok(PlatformOutput {
+                    action: "create_project".to_string(),
+                    project_id: Some(id),
+                    slug: Some(slug),
+                    name: Some(name),
+                    active_revision: None,
+                    ..Default::default()
+                })
             }
             PlatformAction::IssueApiKey => {
                 let name = args
@@ -117,15 +125,20 @@ impl super::AdminServer {
                     json!({"api_key_id": id, "project": project.as_ref().map(|p| p.slug.clone()), "scopes": scopes, "global": is_global}),
                 )
                 .await;
-                Ok(json!({
-                    "api_key_id": id,
-                    "name": name,
-                    "api_key": token,
-                    "project": project.as_ref().map(|p| p.slug.clone()),
-                    "is_global": is_global,
-                    "scopes": scopes,
-                    "warning": "this plaintext key is shown once; store it securely and never commit it",
-                }))
+                Ok(PlatformOutput {
+                    action: "issue_api_key".to_string(),
+                    api_key_id: Some(id),
+                    name: Some(name),
+                    api_key: Some(token),
+                    project: Some(project.as_ref().map(|p| p.slug.clone())),
+                    is_global: Some(is_global),
+                    scopes: Some(scopes),
+                    warning: Some(
+                        "this plaintext key is shown once; store it securely and never commit it"
+                            .to_string(),
+                    ),
+                    ..Default::default()
+                })
             }
             PlatformAction::RevokeApiKey => {
                 let key_ref = args.api_key_id.as_deref().ok_or_else(|| {
@@ -173,7 +186,12 @@ impl super::AdminServer {
                     json!({"api_key_id": id}),
                 )
                 .await;
-                Ok(json!({"api_key_id": id, "revoked": true}))
+                Ok(PlatformOutput {
+                    action: "revoke_api_key".to_string(),
+                    api_key_id: Some(id),
+                    revoked: Some(true),
+                    ..Default::default()
+                })
             }
             PlatformAction::ListUsers => {
                 let rows: Vec<(Uuid, String, String, String, chrono::DateTime<chrono::Utc>)> =
@@ -183,19 +201,23 @@ impl super::AdminServer {
                     .fetch_all(&self.state.db)
                     .await
                     .map_err(|e| ToolError::internal(format!("list users: {e}")))?;
-                let users: Vec<Value> = rows
+                let users: Vec<PlatformUserView> = rows
                     .into_iter()
-                    .map(|(id, username, display_name, role, created_at)| {
-                        json!({
-                            "id": id,
-                            "username": username,
-                            "display_name": display_name,
-                            "role": role,
-                            "created_at": created_at,
-                        })
-                    })
+                    .map(
+                        |(id, username, display_name, role, created_at)| PlatformUserView {
+                            id,
+                            username,
+                            display_name,
+                            role,
+                            created_at,
+                        },
+                    )
                     .collect();
-                Ok(json!({"users": users}))
+                Ok(PlatformOutput {
+                    action: "list_users".to_string(),
+                    users: Some(users),
+                    ..Default::default()
+                })
             }
         }
     }

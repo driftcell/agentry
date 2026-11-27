@@ -45,6 +45,7 @@ export interface DashboardMetrics {
 
 export interface DashboardRecentRow {
   id: string;
+  short_code: string;
   project_slug: string;
   project_name: string;
   status: RevisionStatus;
@@ -126,6 +127,7 @@ export interface ProjectFileResponse {
 
 export interface Revision {
   id: string;
+  short_code: string;
   project_id: string;
   base_revision_id: string | null;
   merged_against_revision_id: string | null;
@@ -148,6 +150,7 @@ export interface Revision {
 
 export interface RevisionListRow {
   id: string;
+  short_code: string;
   project_slug: string;
   status: RevisionStatus;
   commit_message: string;

@@ -1,4 +1,5 @@
 use askama::Template;
+use chrono::{DateTime, Utc};
 use schemars::JsonSchema;
 use serde::Serialize;
 use uuid::Uuid;
@@ -96,4 +97,53 @@ pub(super) struct ResolveOutput {
     pub token_added: i32,
     pub token_removed: i32,
     pub next: String,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+pub(super) struct PlatformUserView {
+    pub id: Uuid,
+    pub username: String,
+    pub display_name: String,
+    pub role: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema, Template, Default)]
+#[template(path = "mcp/manage_platform.md", escape = "none")]
+pub(super) struct PlatformOutput {
+    #[serde(skip)]
+    pub action: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub slug: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_revision: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_key_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project: Option<Option<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_global: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scopes: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub warning: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoked: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub users: Option<Vec<PlatformUserView>>,
+}
+
+impl PlatformOutput {
+    pub fn scopes_csv(&self) -> String {
+        self.scopes
+            .as_ref()
+            .map(|s| s.join(", "))
+            .unwrap_or_default()
+    }
 }

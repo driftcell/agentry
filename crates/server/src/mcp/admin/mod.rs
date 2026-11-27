@@ -13,7 +13,7 @@ use crate::AppState;
 use crate::error::ToolError;
 use crate::project::ProjectContext;
 
-use super::{parse_args, request_project_context, tool_dual, tool_json};
+use super::{parse_args, request_project_context, tool_dual};
 
 #[derive(Clone)]
 pub struct AdminServer {
@@ -81,6 +81,7 @@ impl AdminServer {
                 serde_json::Map::new(),
             )
             .with_input_schema::<PlatformArgs>()
+            .with_output_schema::<outputs::PlatformOutput>()
             .with_annotations(ToolAnnotations::new().destructive(true).open_world(false)),
         ]
     }
@@ -123,7 +124,8 @@ impl AdminServer {
             }
             "manage_platform" => {
                 let args: PlatformArgs = parse_args(request.arguments.clone())?;
-                self.manage_platform(ctx, args).await.map(tool_json)
+                let out = self.manage_platform(ctx, args).await?;
+                tool_dual(&out)
             }
             other => Err(ToolError::new(
                 "UNKNOWN_TOOL",

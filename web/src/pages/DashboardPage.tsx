@@ -228,8 +228,8 @@ export function DashboardPage() {
                           <span className="font-mono text-xs font-medium text-ink">
                             {row.project_slug}
                           </span>
-                          <code className="mono-num text-[11px] text-ink-muted">
-                            {shortUuid(row.id)}
+                          <code title={row.id} className="mono-num text-[11px] text-ink-muted">
+                            {row.short_code || shortUuid(row.id)}
                           </code>
                         </div>
 

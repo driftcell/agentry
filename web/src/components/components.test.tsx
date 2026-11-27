@@ -212,6 +212,7 @@ describe("Base UI & workbench components", () => {
 
     const revision: Revision = {
       id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      short_code: "amber-oak",
       project_id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
       base_revision_id: "cccccccc-cccc-cccc-cccc-cccccccccccc",
       merged_against_revision_id: "dddddddd-dddd-dddd-dddd-dddddddddddd",

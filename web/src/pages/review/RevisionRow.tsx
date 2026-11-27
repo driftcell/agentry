@@ -71,6 +71,14 @@ export function RevisionRow({ row }: { row: RevisionListRow }) {
             <span
               style={shared ? { viewTransitionName: "revision-identity" } : undefined}
             >
+              {row.short_code ? (
+                <code
+                  title={row.id}
+                  className="mono-num rounded-sm border border-hairline bg-subtle px-1.5 py-0.5 text-[11px] font-medium text-ink"
+                >
+                  {row.short_code}
+                </code>
+              ) : null}
               <CopyableHash value={row.id} />
             </span>
           </div>
@@ -217,7 +225,7 @@ export function RevisionRow({ row }: { row: RevisionListRow }) {
             <div>
               项目：<span className="font-semibold">{row.project_slug}</span>
             </div>
-            <div>版本：{shortUuid(row.id, 12)}</div>
+            <div>版本：{row.short_code ? `${row.short_code} (${shortUuid(row.id, 8)})` : shortUuid(row.id, 12)}</div>
             <TokenDelta added={row.token_added} removed={row.token_removed} />
           </div>
         }

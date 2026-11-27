@@ -26,8 +26,13 @@ tokenises only when it must truncate to `max_tokens`.
 - `crates/server/src/tokens.rs` is the single tokenizer entry point.
 - `read_slice(outline)` never loads the whole file body; it renders the stored
   outline.
-- `inspect_workspace` loads the active snapshot in one join and computes no
-  tokens at read time.
+- `inspect_workspace` and `load_active_files` load active metadata in one join
+  with only `left(text_content, 1024)` for descriptions, computing no tokens at
+  read time.
+- `collect_skill_entries` batch-loads `SKILL.md` blobs in a single `ANY($1)`
+  query, while `skills/get` fetches only the requested skill.
+- `propose_revision` reuses the active snapshot when `base_revision_id` is
+  omitted or equals the active revision.
 - `revision_files` uses joins rather than one query per file.
 - The tokenizer is warmed at process start so the first outline read does not
   pay the vocabulary load.

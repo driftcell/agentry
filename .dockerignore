@@ -6,6 +6,9 @@ crates/server/static
 .env.*
 !.env.example
 docs
+README.md
+Dockerfile*
+docker-compose*.yml
 playwright-report
 test-results
 *.log

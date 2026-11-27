@@ -11,6 +11,9 @@ S3-compatible bucket.
 - Approval is available exclusively from an authenticated human web session.
 - Activation is atomic and rejects stale revisions.
 - Content is addressed by SHA-256 and tokenised with `o200k_base` once at ingest.
+- MCP tools return dual-format outputs (Askama-rendered Markdown + typed
+  `structuredContent` with `outputSchema`) and use 2–3 token `o200k_base` short
+  codes alongside internal UUIDs.
 
 ## Repository layout
 

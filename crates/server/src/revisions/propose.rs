@@ -138,34 +138,44 @@ pub async fn propose_revision(
         ))
     };
 
-    let short_code = crate::short_id::generate_short_code();
     let mut tx = state.db.begin().await.map_err(AppError::from_db)?;
-    let revision_id: Uuid = sqlx::query_scalar(
-        r#"
-        INSERT INTO revisions
-            (project_id, short_code, base_revision_id, merged_against_revision_id, status,
-             commit_message, author_user_id, author_api_key_id, token_added,
-             token_removed, total_tokens, file_count, conflict_summary)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-        RETURNING id
-        "#,
-    )
-    .bind(project.id)
-    .bind(&short_code)
-    .bind(base_id)
-    .bind(active_revision_id)
-    .bind(status)
-    .bind(commit_message)
-    .bind(author.user_id)
-    .bind(author.api_key_id)
-    .bind(token_added as i32)
-    .bind(token_removed as i32)
-    .bind(total_tokens)
-    .bind(file_count)
-    .bind(conflict_summary)
-    .fetch_one(&mut *tx)
-    .await
-    .map_err(AppError::from_db)?;
+    let mut inserted_id: Option<Uuid> = None;
+    for _ in 0..3 {
+        let short_code = crate::short_id::generate_short_code();
+        inserted_id = sqlx::query_scalar(
+            r#"
+            INSERT INTO revisions
+                (project_id, short_code, base_revision_id, merged_against_revision_id, status,
+                 commit_message, author_user_id, author_api_key_id, token_added,
+                 token_removed, total_tokens, file_count, conflict_summary)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+            ON CONFLICT (project_id, short_code) DO NOTHING
+            RETURNING id
+            "#,
+        )
+        .bind(project.id)
+        .bind(&short_code)
+        .bind(base_id)
+        .bind(active_revision_id)
+        .bind(status)
+        .bind(commit_message)
+        .bind(author.user_id)
+        .bind(author.api_key_id)
+        .bind(token_added as i32)
+        .bind(token_removed as i32)
+        .bind(total_tokens)
+        .bind(file_count)
+        .bind(&conflict_summary)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(AppError::from_db)?;
+        if inserted_id.is_some() {
+            break;
+        }
+    }
+    let revision_id = inserted_id.ok_or_else(|| {
+        AppError::internal("could not allocate a unique revision short_code after 3 attempts")
+    })?;
 
     for (path, result, change_type) in &results {
         let Some(blob) = result else { continue };

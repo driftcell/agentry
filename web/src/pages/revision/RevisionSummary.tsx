@@ -30,6 +30,12 @@ export function RevisionSummary() {
 
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-x-5 gap-y-2 text-xs border-t lg:border-t-0 pt-2 lg:pt-0 border-hairline">
           <div>
+            <dt className="text-[11px] text-ink-muted">版本短码</dt>
+            <dd className="font-mono text-ink mt-0.5" title={revision.id}>
+              {revision.short_code || shortUuid(revision.id)}
+            </dd>
+          </div>
+          <div>
             <dt className="text-[11px] text-ink-muted">提交者</dt>
             <dd className="font-mono text-ink mt-0.5">{detail.author}</dd>
           </div>
