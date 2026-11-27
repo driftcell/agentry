@@ -45,7 +45,7 @@
 
 **出口验收**
 
-- [ ] 全新环境可启动 PostgreSQL、执行 Migration、完成 Seed 并启动空壳服务。
+- [x] 全新环境可启动 PostgreSQL、执行 Migration、完成 Seed 并启动空壳服务。
 - [x] Seed 重入安全，数据库中不存在明文管理员密码。
 - [x] 配置错误会快速失败，不会以半初始化状态接收请求。
 
@@ -192,18 +192,18 @@
 
 ## 关键端到端验收场景
 
-- [ ] **E1　默认项目读取：** 使用绑定 `default` 的 Key 请求固定 `/mcp`，无需 Header 即只读取默认项目 Active Revision。
-- [ ] **E2　Header 优先级：** 同时提供 `X-MCP-Project` 和不同 `default_project_id`，验证 Header 优先且越权时直接失败。
-- [ ] **E3　多项目挂载：** 使用同一跨项目 Key，通过两个 `/mcp/projects/{slug}` 地址读取不同项目，内容和 Skills 不串线。
-- [ ] **E4　分片读取：** 对大型 `CLAUDE.md` 依次调用 `inspect_workspace`、`read_slice(outline)`、`read_slice(section)`，只返回所需内容并带正确 Token 数。
+- [x] **E1　默认项目读取：** 使用绑定 `default` 的 Key 请求固定 `/mcp`，无需 Header 即只读取默认项目 Active Revision。
+- [x] **E2　Header 优先级：** 同时提供 `X-MCP-Project` 和不同 `default_project_id`，验证 Header 优先且越权时直接失败。
+- [x] **E3　多项目挂载：** 使用同一跨项目 Key，通过两个 `/mcp/projects/{slug}` 地址读取不同项目，内容和 Skills 不串线。
+- [x] **E4　分片读取：** 对大型 `CLAUDE.md` 依次调用 `inspect_workspace`、`read_slice(outline)`、`read_slice(section)`，只返回所需内容并带正确 Token 数。
 - [ ] **E5　本地下载：** 调用 `pull_bundle_url`，验证签名 URL、指定文件集、Safe Command、过期失效及路径越权拒绝。
-- [ ] **E6　无冲突发布：** `stage_upload_urls` → 上传 → `propose_revision` → Web Approve → `activate_revision` → `/mcp` 读到新 Active。
+- [x] **E6　无冲突发布：** `stage_upload_urls` → 上传 → `propose_revision` → Web Approve → `activate_revision` → `/mcp` 读到新 Active。
 - [ ] **E7　Inline Patch 发布：** 以 `inline_patches` 提案，验证 Base 校验、Token Diff、人类审批和激活闭环。
 - [ ] **E8　冲突解决：** 制造 Base/Active/Incoming 同行冲突，确认进入 `conflict`；解决后回到 `pending_review`，重新审批后才能激活。
-- [ ] **E9　审批不可绕过：** 对 `pending_review`、`rejected`、`conflict` Revision 直接调用 `activate_revision`，全部失败且 Active 不变。
-- [ ] **E10　Approve & Activate Now：** Web 人类管理员执行组合操作，验证数据库原子性、审计记录与 Agent 后续状态查询一致。
+- [x] **E9　审批不可绕过：** 对 `pending_review`、`rejected`、`conflict` Revision 直接调用 `activate_revision`，全部失败且 Active 不变。
+- [x] **E10　Approve & Activate Now：** Web 人类管理员执行组合操作，验证数据库原子性、审计记录与 Agent 后续状态查询一致。
 - [ ] **E11　权限与吊销：** 分别缺少 `mcp:read`、`admin:propose`、`admin:activate`、`admin:platform` 时调用对应能力，均被拒绝；吊销 Key 后立即失效。
-- [ ] **E12　大附件交付：** 非文本附件仅在通过 Project 鉴权后签发 OSS 签名链接/重定向，MCP JSON 不包含二进制正文；链接权限最小且短时有效，并在文档中明确「持有链接者可在有效期内访问」的能力边界。
+- [x] **E12　大附件交付：** 非文本附件仅在通过 Project 鉴权后签发 OSS 签名链接/重定向，MCP JSON 不包含二进制正文；链接权限最小且短时有效，并在文档中明确「持有链接者可在有效期内访问」的能力边界。
 - [ ] **E13　SPA 与 MCP 共存：** 深层 TanStack 路由可刷新，四组 MCP 路由不被静态资源 Fallback 拦截。
 - [ ] **E14　干净部署：** 全新环境仅依赖 Compose 与外部 OSS 即完成 Migration、Seed、构建和上述核心流程。
 

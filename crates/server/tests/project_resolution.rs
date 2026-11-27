@@ -119,6 +119,18 @@ async fn project_sources_follow_the_fixed_priority_table() {
     assert_eq!(status, 200);
     assert_eq!(tool_project(&body), "second");
 
+    // An illegal project_slug never reaches a project lookup.
+    let invalid_slug = app
+        .mcp(
+            "/admin/mcp",
+            global_key,
+            "stage_upload_urls",
+            json!({"project_slug": "../bad", "files": []}),
+        )
+        .await
+        .expect_err("illegal project_slug");
+    assert_eq!(invalid_slug["error"]["code"], "INVALID_ARGUMENT");
+
     // Scope gates are default-deny on both endpoint families.
     let reader = app
         .web(
