@@ -69,6 +69,14 @@ pub(super) struct ActivateArgs {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub(super) struct RebaseArgs {
+    #[serde(default, alias = "project")]
+    pub(super) project_slug: Option<String>,
+    pub(super) revision_id: Uuid,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub(super) struct ResolveArgs {
     #[serde(default, alias = "project")]
     pub(super) project_slug: Option<String>,

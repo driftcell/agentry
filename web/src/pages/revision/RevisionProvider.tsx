@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQueries, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { DiffViewMode } from "@/components/DiffViewer";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -41,6 +42,7 @@ interface RevisionActions {
   requestConfirm: (kind: "activate" | "reject") => void;
   cancelConfirm: () => void;
   runReviewAction: (kind: ReviewAction) => void;
+  rebase: () => void;
   invalidateAll: () => Promise<void>;
   refreshDetail: () => void;
   refetchSides: () => void;
@@ -65,6 +67,8 @@ interface RevisionMeta {
   detailError: unknown;
   detailFetching: boolean;
   pendingAction: ReviewAction | null;
+  canRebase: boolean;
+  rebasing: boolean;
 }
 
 interface RevisionContextValue {
@@ -227,6 +231,23 @@ export function RevisionProvider({
     },
   });
 
+  const rebaseMutation = useMutation({
+    mutationFn: () => api.rebaseRevision(revisionId),
+    onSuccess: async () => {
+      await Promise.all([
+        detailQuery.refetch(),
+        leftQuery?.refetch(),
+        rightQuery?.refetch(),
+      ]);
+      toast.success("已基于当前生效版本重新合并，可以重新审批");
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof ApiError ? `${err.code}: ${err.message}` : "重新合并失败，请稍后重试。",
+      );
+    },
+  });
+
   return (
     <RevisionContext
       value={{
@@ -264,8 +285,15 @@ export function RevisionProvider({
           requestConfirm: setConfirmKind,
           cancelConfirm: () => setConfirmKind(null),
           runReviewAction: reviewMutation.mutate,
+          rebase: () => rebaseMutation.mutate(),
           invalidateAll,
-          refreshDetail: () => void detailQuery.refetch(),
+          refreshDetail: () => {
+            void Promise.all([
+              detailQuery.refetch(),
+              leftQuery?.refetch(),
+              rightQuery?.refetch(),
+            ]);
+          },
           refetchSides: () => {
             void leftQuery?.refetch();
             void rightQuery?.refetch();
@@ -292,6 +320,10 @@ export function RevisionProvider({
           detailError: detailQuery.error,
           detailFetching: detailQuery.isFetching,
           pendingAction: reviewMutation.isPending ? (reviewMutation.variables ?? null) : null,
+          canRebase: Boolean(
+            detail?.stale && revision?.status === "pending_review" && canApprove,
+          ),
+          rebasing: rebaseMutation.isPending,
         },
       }}
     >

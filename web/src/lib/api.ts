@@ -170,6 +170,12 @@ export const api = {
     });
   },
 
+  rebaseRevision(id: string): Promise<{ revision: Revision }> {
+    return request<{ revision: Revision }>(`/api/revisions/${encodeURIComponent(id)}/rebase`, {
+      method: "POST",
+    });
+  },
+
   rejectRevision(id: string, input: { comment?: string }): Promise<{ revision: Revision }> {
     return request<{ revision: Revision }>(`/api/revisions/${encodeURIComponent(id)}/reject`, {
       method: "POST",

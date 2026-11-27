@@ -32,6 +32,28 @@ impl super::AdminServer {
         }))
     }
 
+    pub(super) async fn rebase_revision(
+        &self,
+        ctx: &ProjectContext,
+        args: RebaseArgs,
+    ) -> Result<Value, ToolError> {
+        ctx.require_scope("admin:propose")?;
+        let project = resolve_tool_project(&self.state, ctx, args.project_slug.as_deref()).await?;
+        let actor = Actor::from_mcp(ctx);
+        let revision = revisions::rebase_revision(&self.state, &project, args.revision_id, &actor)
+            .await
+            .map_err(ToolError::from)?;
+        Ok(json!({
+            "revision_id": revision.id,
+            "status": revision.status,
+            "token_added": revision.token_added,
+            "token_removed": revision.token_removed,
+            "total_tokens": revision.total_tokens,
+            "stale": false,
+            "next": "a human must approve the rebased revision before it can be activated",
+        }))
+    }
+
     pub(super) async fn activate_revision(
         &self,
         ctx: &ProjectContext,

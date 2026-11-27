@@ -74,12 +74,9 @@ export function RevisionSummary() {
           {state.actionError ? (
             <div
               role="alert"
-              className="flex items-center justify-between gap-2 border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-900 font-mono"
+              className="border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-900 font-mono"
             >
-              <span>{state.actionError}</span>
-              <Button variant="outline" size="xs" onClick={actions.refreshDetail}>
-                刷新
-              </Button>
+              {state.actionError}
             </div>
           ) : null}
 

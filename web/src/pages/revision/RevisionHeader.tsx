@@ -62,17 +62,26 @@ export function RevisionHeader() {
       revision.status !== "rejected" ? (
         <div
           role="status"
-          className="flex items-center justify-between gap-3 border border-amber-400 bg-amber-50/70 px-4 py-2.5 text-xs text-amber-950"
+          className="flex flex-wrap items-center justify-between gap-3 border border-amber-400 bg-amber-50/70 px-4 py-2.5 text-xs text-amber-950"
         >
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 shrink-0 text-amber-800" aria-hidden="true" />
             <span>
-              当前生效版本已更新，此提案基于旧版本合并，批准前请核对「当前生效 → 本次变更」差异。
+              {meta.canApprove
+                ? "当前生效版本已更新，此提案基于旧版本合并。可以先重新合并到当前生效版本，再核对差异并审批。"
+                : "当前生效版本已更新，此提案基于旧版本合并。请联系管理员重新合并到当前生效版本后再处理。"}
             </span>
           </div>
-          <Button variant="outline" size="xs" onClick={actions.refreshDetail}>
-            刷新
-          </Button>
+          {meta.canRebase ? (
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={actions.rebase}
+              disabled={meta.rebasing}
+            >
+              {meta.rebasing ? "正在重新合并…" : "重新合并到当前生效版本"}
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </>

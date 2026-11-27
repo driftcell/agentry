@@ -232,6 +232,23 @@ pub(super) struct RejectInput {
     comment: Option<String>,
 }
 
+pub(super) async fn rebase_revision(
+    user: WebUser,
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Value>> {
+    if !user.is_admin() {
+        return Err(AppError::forbidden(
+            "FORBIDDEN",
+            "revision rebase requires an admin user",
+        ));
+    }
+    let (project, _) = ensure_revision_access(&state, &user, id).await?;
+    let actor = Actor::from_web(&user);
+    let revision = revisions::rebase_revision(&state, &project, id, &actor).await?;
+    Ok(Json(json!({"revision": revision})))
+}
+
 pub(super) async fn reject_revision(
     user: WebUser,
     State(state): State<AppState>,

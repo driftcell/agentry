@@ -34,7 +34,7 @@ slug and a different header returns `400 PROJECT_CONTEXT_CONFLICT`.
 | Scope | Grants |
 | --- | --- |
 | `mcp:read` | read tools and resources on `/mcp` |
-| `admin:propose` | `stage_upload_urls`, `propose_revision`, `check_review_status`, `resolve_conflict` |
+| `admin:propose` | `stage_upload_urls`, `propose_revision`, `check_review_status`, `rebase_revision`, `resolve_conflict` |
 | `admin:activate` | `activate_revision` |
 | `admin:platform` | `manage_platform` |
 
@@ -129,6 +129,15 @@ project pointer and revision state in one transaction.
 
 There is deliberately **no approve tool**.
 
+### `rebase_revision`
+
+Arguments: optional `project_slug`, `revision_id`. Requires `admin:propose`.
+
+Recomputes a stale `pending_review` revision against the current active
+revision and **updates the same revision id** instead of creating a new one.
+The revision returns to `pending_review`; overlapping edits turn it into
+`conflict`. A human must approve the result before it can be activated.
+
 ### `resolve_conflict`
 
 Arguments: optional `project_slug`, `revision_id`, `resolutions`
@@ -158,6 +167,8 @@ secrets.
 Approval is not an MCP tool. A human signs in at `/api/auth/login` and uses:
 
 - `POST /api/revisions/{id}/approve` with `{comment?, activate_now?}`
+- `POST /api/revisions/{id}/rebase` (admin session; rebases a stale pending
+  revision in place)
 - `POST /api/revisions/{id}/reject` with `{comment?}`
 - `POST /api/revisions/{id}/resolve` with `{resolutions, commit_message?}`
 

@@ -49,6 +49,13 @@ impl AdminServer {
             .with_input_schema::<StatusArgs>()
             .with_annotations(ToolAnnotations::new().read_only(true).open_world(false)),
             Tool::new(
+                "rebase_revision",
+                "Rebase a stale pending_review revision in place onto the current active revision. The revision id is preserved; if the rebase produces overlaps the status becomes conflict and must be resolved.",
+                serde_json::Map::new(),
+            )
+            .with_input_schema::<RebaseArgs>()
+            .with_annotations(ToolAnnotations::new().destructive(false).open_world(false)),
+            Tool::new(
                 "activate_revision",
                 "Atomically activate a revision that a human already approved. Any other status fails; there is no tool to approve.",
                 serde_json::Map::new(),
@@ -93,6 +100,10 @@ impl AdminServer {
             "activate_revision" => {
                 let args: ActivateArgs = parse_args(request.arguments.clone())?;
                 self.activate_revision(ctx, args).await.map(tool_json)
+            }
+            "rebase_revision" => {
+                let args: RebaseArgs = parse_args(request.arguments.clone())?;
+                self.rebase_revision(ctx, args).await.map(tool_json)
             }
             "resolve_conflict" => {
                 let args: ResolveArgs = parse_args(request.arguments.clone())?;
