@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Copy } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -13,8 +13,6 @@ interface CopyButtonProps {
   className?: string;
 }
 
-const RESET_MS = 1500;
-
 export function CopyButton({
   value,
   label = "复制",
@@ -24,29 +22,13 @@ export function CopyButton({
   size = "icon-xs",
   className,
 }: CopyButtonProps) {
-  const [copied, setCopied] = useState(false);
-  const timeoutRef = useRef<number | null>(null);
-
-  useEffect(
-    () => () => {
-      if (timeoutRef.current !== null) {
-        window.clearTimeout(timeoutRef.current);
-      }
-    },
-    [],
-  );
-
   const handleCopy = async () => {
     if (!value) return;
     try {
       await navigator.clipboard.writeText(value);
-      setCopied(true);
-      if (timeoutRef.current !== null) {
-        window.clearTimeout(timeoutRef.current);
-      }
-      timeoutRef.current = window.setTimeout(() => setCopied(false), RESET_MS);
+      toast.success(copiedLabel);
     } catch {
-      // Clipboard may be unavailable in restricted contexts.
+      toast.error("复制失败，请手动选择文本");
     }
   };
 
@@ -57,19 +39,12 @@ export function CopyButton({
       size={size}
       onClick={() => void handleCopy()}
       disabled={!value}
-      title={copied ? copiedLabel : label}
-      aria-label={copied ? copiedLabel : label}
-      className={cn(copied && "text-emerald-700", className)}
+      title={label}
+      aria-label={label}
+      className={cn(className)}
     >
-      {copied ? (
-        <Check aria-hidden="true" />
-      ) : (
-        <Copy aria-hidden="true" />
-      )}
-      {showLabel ? <span>{copied ? copiedLabel : label}</span> : null}
-      <span className="sr-only" role="status" aria-live="polite">
-        {copied ? copiedLabel : ""}
-      </span>
+      <Copy aria-hidden="true" />
+      {showLabel ? <span>{label}</span> : null}
     </Button>
   );
 }

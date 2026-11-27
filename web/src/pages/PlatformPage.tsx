@@ -1,6 +1,6 @@
 import { useState, useTransition, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Folder,
   KeyRound,
@@ -95,14 +95,13 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
   // API key issuance & revocation state
   const [issueKeyOpen, setIssueKeyOpen] = useState(false);
   const [keyName, setKeyName] = useState("");
+  const [keyNameError, setKeyNameError] = useState<string | null>(null);
   const [keyScopes, setKeyScopes] = useState<Scope[]>(["mcp:read"]);
   const [keyGlobal, setKeyGlobal] = useState(false);
   const [keyUserId, setKeyUserId] = useState("");
-  const [keySaving, setKeySaving] = useState(false);
   const [keyError, setKeyError] = useState<string | null>(null);
   const [issuedSecret, setIssuedSecret] = useState<IssueKeyResponse | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<ApiKeyRow | null>(null);
-  const [revoking, setRevoking] = useState(false);
 
   // User creation state
   const [createUserOpen, setCreateUserOpen] = useState(false);
@@ -139,6 +138,50 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
   const selectedKeyUser = keyUserOptions.find((u) => u.value === keyUserId) ?? null;
 
   const selectedRole = USER_ROLE_OPTIONS.find((r) => r.value === newRole) ?? null;
+
+  const existingKeyNames = new Set(
+    (keysQuery.data?.keys ?? []).map((key) => key.name.trim().toLowerCase()),
+  );
+
+  const validateKeyName = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return "请填写密钥名称。";
+    if (existingKeyNames.has(trimmed.toLowerCase())) {
+      return "当前项目已存在同名密钥，请换一个名称。";
+    }
+    return null;
+  };
+
+  const issueKeyMutation = useMutation({
+    mutationFn: (input: { name: string; scopes: Scope[]; user_id?: string; is_global: boolean }) =>
+      api.issueProjectKey(effectiveKeySlug, input),
+    onSuccess: async (result) => {
+      setIssueKeyOpen(false);
+      setKeyName("");
+      setKeyNameError(null);
+      setKeyScopes(["mcp:read"]);
+      setKeyGlobal(false);
+      setKeyUserId("");
+      setKeyError(null);
+      setIssuedSecret(result);
+      await queryClient.invalidateQueries({ queryKey: ["project-keys", effectiveKeySlug] });
+    },
+    onError: (err) => {
+      setKeyError(err instanceof ApiError ? `${err.code}: ${err.message}` : "签发失败。");
+    },
+  });
+
+  const revokeKeyMutation = useMutation({
+    mutationFn: (id: string) => api.revokeKey(id),
+    onSuccess: async () => {
+      setRevokeTarget(null);
+      await queryClient.invalidateQueries({ queryKey: ["project-keys", effectiveKeySlug] });
+    },
+    onError: (err) => {
+      setRevokeTarget(null);
+      setKeyError(err instanceof ApiError ? `${err.code}: ${err.message}` : "吊销失败。");
+    },
+  });
 
   const changeTab = (nextTab: PlatformTab) => {
     startTransition(async () => {
@@ -209,11 +252,13 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
     );
   };
 
-  const handleIssueKey = async (event: FormEvent) => {
+  const handleIssueKey = (event: FormEvent) => {
     event.preventDefault();
     if (!effectiveKeySlug) return;
-    if (!keyName.trim()) {
-      setKeyError("请填写密钥名称。");
+
+    const nameError = validateKeyName(keyName);
+    if (nameError) {
+      setKeyNameError(nameError);
       return;
     }
     if (keyScopes.length === 0) {
@@ -221,42 +266,19 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
       return;
     }
 
-    setKeySaving(true);
     setKeyError(null);
-    try {
-      const result = await api.issueProjectKey(effectiveKeySlug, {
-        name: keyName.trim(),
-        scopes: keyScopes,
-        is_global: canPlatform ? keyGlobal : false,
-        user_id: canPlatform && keyUserId ? keyUserId : undefined,
-      });
-      setIssueKeyOpen(false);
-      setKeyName("");
-      setKeyScopes(["mcp:read"]);
-      setKeyGlobal(false);
-      setKeyUserId("");
-      setIssuedSecret(result);
-      await queryClient.invalidateQueries({ queryKey: ["project-keys", effectiveKeySlug] });
-    } catch (err) {
-      setKeyError(err instanceof ApiError ? `${err.code}: ${err.message}` : "签发失败。");
-    } finally {
-      setKeySaving(false);
-    }
+    setKeyNameError(null);
+    issueKeyMutation.mutate({
+      name: keyName.trim(),
+      scopes: keyScopes,
+      is_global: canPlatform ? keyGlobal : false,
+      user_id: canPlatform && keyUserId ? keyUserId : undefined,
+    });
   };
 
-  const handleRevokeKey = async () => {
+  const handleRevokeKey = () => {
     if (!revokeTarget) return;
-    setRevoking(true);
-    try {
-      await api.revokeKey(revokeTarget.id);
-      setRevokeTarget(null);
-      await queryClient.invalidateQueries({ queryKey: ["project-keys", effectiveKeySlug] });
-    } catch (err) {
-      setRevokeTarget(null);
-      setKeyError(err instanceof ApiError ? `${err.code}: ${err.message}` : "吊销失败。");
-    } finally {
-      setRevoking(false);
-    }
+    revokeKeyMutation.mutate(revokeTarget.id);
   };
 
   const handleCreateUser = async (event: FormEvent) => {
@@ -779,10 +801,23 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
               <Input
                 id="issue-key-name"
                 value={keyName}
-                onChange={(e) => setKeyName(e.target.value)}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setKeyName(next);
+                  setKeyNameError(
+                    next.trim() && validateKeyName(next) ? "当前项目已存在同名密钥，请换一个名称。" : null,
+                  );
+                }}
                 placeholder="ci-proposer"
+                aria-invalid={keyNameError ? true : undefined}
+                aria-describedby={keyNameError ? "issue-key-name-error" : undefined}
                 required
               />
+              {keyNameError ? (
+                <p id="issue-key-name-error" className="text-[11px] text-red-700">
+                  {keyNameError}
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-1.5">
@@ -865,12 +900,12 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
                 variant="outline"
                 size="sm"
                 onClick={() => setIssueKeyOpen(false)}
-                disabled={keySaving}
+                disabled={issueKeyMutation.isPending}
               >
                 取消
               </Button>
-              <Button type="submit" size="sm" disabled={keySaving}>
-                {keySaving ? "正在生成…" : "生成密钥"}
+              <Button type="submit" size="sm" disabled={issueKeyMutation.isPending}>
+                {issueKeyMutation.isPending ? "正在生成…" : "生成密钥"}
               </Button>
             </DialogFooter>
           </form>
@@ -940,7 +975,7 @@ export function PlatformPage({ initialTab }: { initialTab?: PlatformTab }) {
         description="吊销后立即失效，使用该密钥的客户端将无法再访问服务。"
         confirmLabel="确认吊销"
         variant="destructive"
-        pending={revoking}
+        pending={revokeKeyMutation.isPending}
         onConfirm={() => void handleRevokeKey()}
         details={
           revokeTarget ? (
