@@ -86,7 +86,10 @@ pub fn generate_api_key() -> (String, String, String) {
         .map(|b| ALPHABET[*b as usize % ALPHABET.len()] as char)
         .collect();
     let secret = base64_url(&random[..32]);
-    let key = format!("mreg_{prefix}_{secret}");
+    // Agentry API keys use `ak-` as the scheme and `-` as the separator:
+    // `ak-<prefix>-<secret>`. The secret is base64url and may itself contain
+    // `-`, so only the first two separators are structural.
+    let key = format!("ak-{prefix}-{secret}");
     let hash = sha256_hex(key.as_bytes());
     (key, prefix, hash)
 }
@@ -97,9 +100,8 @@ pub fn base64_url(bytes: &[u8]) -> String {
 }
 
 pub fn key_prefix_from_token(token: &str) -> Option<&str> {
-    let rest = token.strip_prefix("mreg_")?;
-    // base64url secrets may contain `_`, so only split the first separator.
-    let (prefix, secret) = rest.split_once('_')?;
+    let rest = token.strip_prefix("ak-")?;
+    let (prefix, secret) = rest.split_once('-')?;
     if prefix.len() != 10 || secret.len() < 16 || secret.contains(' ') {
         return None;
     }
@@ -333,7 +335,7 @@ mod tests {
     #[test]
     fn generated_keys_have_prefix_and_do_not_expose_a_pattern() {
         let (key, prefix, hash) = generate_api_key();
-        assert!(key.starts_with("mreg_"));
+        assert!(key.starts_with("ak-"));
         assert_eq!(key_prefix_from_token(&key), Some(prefix.as_str()));
         assert_eq!(hash, sha256_hex(key.as_bytes()));
         assert_eq!(prefix.len(), 10);
@@ -343,8 +345,8 @@ mod tests {
 
     #[test]
     fn malformed_tokens_are_rejected_without_a_database_lookup() {
-        assert!(key_prefix_from_token("mreg_short_x").is_none());
+        assert!(key_prefix_from_token("ak-short-x").is_none());
         assert!(key_prefix_from_token("Bearer something").is_none());
-        assert!(key_prefix_from_token("mreg_abcdefghij_0123456789abcdef").is_some());
+        assert!(key_prefix_from_token("ak-abcdefghij-0123456789abcdef").is_some());
     }
 }

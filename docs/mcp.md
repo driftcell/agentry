@@ -13,8 +13,10 @@ an `Mcp-Session-Id`.
 
 ## Authentication and project resolution
 
-Send `Authorization: Bearer <key>` on every request. Keys are created once and
-the plaintext is never shown again.
+Send `Authorization: Bearer ak-<prefix>-<secret>` on every request. Keys are
+created once and the plaintext is never shown again. The `ak-` scheme and the
+first two `-` separators are structural; the base64url secret may contain
+additional dashes.
 
 Resolution priority is fixed and cannot be changed by tool arguments:
 
