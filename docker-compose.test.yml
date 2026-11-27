@@ -1,0 +1,16 @@
+services:
+  postgres-test:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: agentry
+      POSTGRES_PASSWORD: agentry
+      POSTGRES_DB: postgres
+    ports:
+      - "55432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentry -d postgres"]
+      interval: 2s
+      timeout: 2s
+      retries: 30

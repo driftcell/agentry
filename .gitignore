@@ -1,0 +1,11 @@
+/target
+**/node_modules
+/crates/server/static/*
+!/crates/server/static/.gitkeep
+.env
+.env.*
+!.env.example
+.DS_Store
+/playwright-report
+/test-results
+*.log
