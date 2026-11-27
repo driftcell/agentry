@@ -1,0 +1,11 @@
+target
+**/node_modules
+crates/server/static
+.git
+.env
+.env.*
+!.env.example
+docs
+playwright-report
+test-results
+*.log

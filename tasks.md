@@ -36,86 +36,86 @@
 **目标：** 从空仓库得到可迁移、可启动、可测试的最小系统。
 
 - [ ] **T0.1　建立 Rust Workspace 与前端骨架。** 固定 Rust 1.100.0、Axum、SQLx、`rmcp` v3.11.0、`tiktoken-rs`；建立 `crates/server/`、`web/` 与 `xtask` 工程边界，固定 Bun 1.4.5。
-- [ ] **T0.2　建立最小 Docker Compose。** 仅编排 `postgres:17-alpine` 和 `mcp-registry-server`；OSS 使用外部服务，不在 Compose 内隐式增加对象存储容器。
-- [ ] **T0.3　实现配置加载与启动校验。** 覆盖数据库连接、服务监听地址及 `OSS_ENDPOINT`、`OSS_REGION`、`OSS_BUCKET`、`OSS_ACCESS_KEY_ID`、`OSS_SECRET_ACCESS_KEY`、`OSS_VIRTUAL_HOST_STYLE=true`；缺失或非法配置应在启动时给出明确错误。
-- [ ] **T0.4　设计并执行 SQLx Migration。** 至少覆盖 Users、API Keys（含 `default_project_id`、Scopes、吊销状态）、Projects（含 `active_revision_id`）、Revisions、Revision Files、`content_blobs`、`transfer_sessions`，以及审批意见和调用统计所需记录。
-- [ ] **T0.5　建立数据库约束与索引。** 保证摘要、项目 Slug、Revision 关联、状态查询和 Active Revision 读取有合适唯一约束或索引；防止悬空项目上下文与重复激活指针。
-- [ ] **T0.6　实现初始化 Seed。** Migration/初始化流程创建默认超级管理员 `admin` / `admin`（密码使用 Argon2id 哈希）及 `default` 示例项目；重复执行不得产生重复数据。
-- [ ] **T0.7　建立健康检查与最小测试工装。** 提供服务健康检查和数据库连通检查；集成测试可独立建库、跑 Migration、清理数据。
+- [x] **T0.2　建立最小 Docker Compose。** 仅编排 `postgres:17-alpine` 和 `mcp-registry-server`；OSS 使用外部服务，不在 Compose 内隐式增加对象存储容器。
+- [x] **T0.3　实现配置加载与启动校验。** 覆盖数据库连接、服务监听地址及 `OSS_ENDPOINT`、`OSS_REGION`、`OSS_BUCKET`、`OSS_ACCESS_KEY_ID`、`OSS_SECRET_ACCESS_KEY`、`OSS_VIRTUAL_HOST_STYLE=true`；缺失或非法配置应在启动时给出明确错误。
+- [x] **T0.4　设计并执行 SQLx Migration。** 至少覆盖 Users、API Keys（含 `default_project_id`、Scopes、吊销状态）、Projects（含 `active_revision_id`）、Revisions、Revision Files、`content_blobs`、`transfer_sessions`，以及审批意见和调用统计所需记录。
+- [x] **T0.5　建立数据库约束与索引。** 保证摘要、项目 Slug、Revision 关联、状态查询和 Active Revision 读取有合适唯一约束或索引；防止悬空项目上下文与重复激活指针。
+- [x] **T0.6　实现初始化 Seed。** Migration/初始化流程创建默认超级管理员 `admin` / `admin`（密码使用 Argon2id 哈希）及 `default` 示例项目；重复执行不得产生重复数据。
+- [x] **T0.7　建立健康检查与最小测试工装。** 提供服务健康检查和数据库连通检查；集成测试可独立建库、跑 Migration、清理数据。
 
 **出口验收**
 
 - [ ] 全新环境可启动 PostgreSQL、执行 Migration、完成 Seed 并启动空壳服务。
-- [ ] Seed 重入安全，数据库中不存在明文管理员密码。
-- [ ] 配置错误会快速失败，不会以半初始化状态接收请求。
+- [x] Seed 重入安全，数据库中不存在明文管理员密码。
+- [x] 配置错误会快速失败，不会以半初始化状态接收请求。
 
 ## M1　存储与内容流水线
 
 **目标：** 所有后续读取、Diff 和 Revision 操作共用同一套内容寻址与 Token 元数据。
 
-- [ ] **T1.1　实现 S3 兼容 OSS 驱动。** 支持阿里云 OSS、AWS S3、Cloudflare R2 的 Endpoint/Region/Bucket/凭证配置及 Virtual Host Style；封装上传、下载、删除/清理和 Presigned GET/PUT。
-- [ ] **T1.2　定义对象键与本地路径边界。** 统一 Project、Revision、Transfer Session 下的对象键规则；拒绝绝对路径、`..` 穿越、重复规范化路径和跨项目引用。
-- [ ] **T1.3　实现 `content_blobs` 内容寻址。** 保存 `sha256` 摘要、大小、文本存储位置或 OSS 对象键、媒体类型与 Token 元数据；相同内容复用时不破坏 Revision 的不可变性。
-- [ ] **T1.4　实现入库计算流水线。** 使用 SHA-256 校验完整性，使用 `tiktoken-rs` 的 `o200k_base` 预计算文件总 Token 数，并记录计算失败与重试结果。
-- [ ] **T1.5　建立 Markdown 结构索引。** 解析 H1—H3、章节边界与各节 Token 数，为 `outline`、`section` 和 Token 增减统计提供稳定数据。
-- [ ] **T1.6　实现 Transfer Session 生命周期。** 保存上传会话与 Project、文件清单、OSS 对象键、预期摘要、过期时间和完成状态；过期或未校验内容不得进入 Revision。
-- [ ] **T1.7　实现文本与大附件分流。** Markdown 原文可从 PG 毫秒级读取；非文本大附件返回外部 OSS 签名链接或受控重定向，不把二进制内容塞入 MCP JSON。
+- [x] **T1.1　实现 S3 兼容 OSS 驱动。** 支持阿里云 OSS、AWS S3、Cloudflare R2 的 Endpoint/Region/Bucket/凭证配置及 Virtual Host Style；封装上传、下载、删除/清理和 Presigned GET/PUT。
+- [x] **T1.2　定义对象键与本地路径边界。** 统一 Project、Revision、Transfer Session 下的对象键规则；拒绝绝对路径、`..` 穿越、重复规范化路径和跨项目引用。
+- [x] **T1.3　实现 `content_blobs` 内容寻址。** 保存 `sha256` 摘要、大小、文本存储位置或 OSS 对象键、媒体类型与 Token 元数据；相同内容复用时不破坏 Revision 的不可变性。
+- [x] **T1.4　实现入库计算流水线。** 使用 SHA-256 校验完整性，使用 `tiktoken-rs` 的 `o200k_base` 预计算文件总 Token 数，并记录计算失败与重试结果。
+- [x] **T1.5　建立 Markdown 结构索引。** 解析 H1—H3、章节边界与各节 Token 数，为 `outline`、`section` 和 Token 增减统计提供稳定数据。
+- [x] **T1.6　实现 Transfer Session 生命周期。** 保存上传会话与 Project、文件清单、OSS 对象键、预期摘要、过期时间和完成状态；过期或未校验内容不得进入 Revision。
+- [x] **T1.7　实现文本与大附件分流。** Markdown 原文可从 PG 毫秒级读取；非文本大附件返回外部 OSS 签名链接或受控重定向，不把二进制内容塞入 MCP JSON。
 
 **出口验收**
 
-- [ ] 同一文件从上传到读取的 SHA-256、大小和 Token 数一致。
+- [x] 同一文件从上传到读取的 SHA-256、大小和 Token 数一致。
 - [ ] S3 兼容集成测试覆盖 Presigned PUT、后端拉取、Presigned GET 与过期场景。
-- [ ] 路径穿越、摘要 mismatch、过期 Session 和跨 Project 对象引用均被拒绝。
+- [x] 路径穿越、摘要 mismatch、过期 Session 和跨 Project 对象引用均被拒绝。
 
 ## M2　鉴权与 ProjectContext
 
 **目标：** 四组 MCP 路由只使用一套确定、可测试的鉴权和项目解析规则。
 
-- [ ] **T2.1　实现 Bearer API Key 鉴权。** 支持安全存储与校验、项目绑定、全局 Key、Scope、吊销和过期校验；日志不得记录完整 Key。
-- [ ] **T2.2　实现共用中间件与 `ProjectContext`。** 上下文至少携带当前 User/API Key、Project、全局 Key 标记与有效 Scopes，并传递给所有 MCP Handler。
-- [ ] **T2.3　实现固定路由的项目解析。** 对 `/mcp` 和 `/admin/mcp`，严格按 `X-MCP-Project` → 当前 Key 的 `default_project_id` 解析；仅 `/admin/mcp` 的全局 Key 可在 Tool 参数中用 `project_slug` 兜底。
-- [ ] **T2.4　实现项目路径路由解析。** 对 `/mcp/projects/{slug}` 和 `/admin/mcp/projects/{slug}`，URL Slug 优先；同时校验 Key 对该 Project 的 `mcp:read` 或相应 `admin:*` 权限，失败时不得回退到其他项目。
-- [ ] **T2.5　建立 Tool/Action 到 Scope 的默认拒绝映射。** 普通读取使用 `mcp:read`；提案、激活、平台管理分别校验 `admin:propose`、`admin:activate`、`admin:platform`，不得只校验「是否为管理员 Key」。
-- [ ] **T2.6　记录最小调用统计。** 为 Dashboard 记录 API Key、Project、端点、Tool/协议方法、结果状态和耗时等元数据；不记录文件正文、Bearer 明文或完整 Presigned URL。
-- [ ] **T2.7　统一鉴权与解析错误。** 区分未认证、权限不足、项目不存在、项目上下文缺失和冲突的项目指定方式，响应不泄露其他 Project 是否存在及其内容。
+- [x] **T2.1　实现 Bearer API Key 鉴权。** 支持安全存储与校验、项目绑定、全局 Key、Scope、吊销和过期校验；日志不得记录完整 Key。
+- [x] **T2.2　实现共用中间件与 `ProjectContext`。** 上下文至少携带当前 User/API Key、Project、全局 Key 标记与有效 Scopes，并传递给所有 MCP Handler。
+- [x] **T2.3　实现固定路由的项目解析。** 对 `/mcp` 和 `/admin/mcp`，严格按 `X-MCP-Project` → 当前 Key 的 `default_project_id` 解析；仅 `/admin/mcp` 的全局 Key 可在 Tool 参数中用 `project_slug` 兜底。
+- [x] **T2.4　实现项目路径路由解析。** 对 `/mcp/projects/{slug}` 和 `/admin/mcp/projects/{slug}`，URL Slug 优先；同时校验 Key 对该 Project 的 `mcp:read` 或相应 `admin:*` 权限，失败时不得回退到其他项目。
+- [x] **T2.5　建立 Tool/Action 到 Scope 的默认拒绝映射。** 普通读取使用 `mcp:read`；提案、激活、平台管理分别校验 `admin:propose`、`admin:activate`、`admin:platform`，不得只校验「是否为管理员 Key」。
+- [x] **T2.6　记录最小调用统计。** 为 Dashboard 记录 API Key、Project、端点、Tool/协议方法、结果状态和耗时等元数据；不记录文件正文、Bearer 明文或完整 Presigned URL。
+- [x] **T2.7　统一鉴权与解析错误。** 区分未认证、权限不足、项目不存在、项目上下文缺失和冲突的项目指定方式，响应不泄露其他 Project 是否存在及其内容。
 
 **出口验收**
 
 - [ ] 表驱动测试覆盖四组路由、每种项目来源及优先级组合。
-- [ ] 跨项目 Key、吊销 Key、缺失 Scope、路径越权和非法 `project_slug` 均被拒绝。
+- [x] 跨项目 Key、吊销 Key、缺失 Scope、路径越权和非法 `project_slug` 均被拒绝。
 - [ ] 同一 Tool 在固定路由与 Slug 路由下获得一致、可审计的 `ProjectContext`。
 
 ## M3　Revision 领域核心
 
 **目标：** 把审批与合并规则做成独立领域服务，MCP 与 Web 只调用同一实现。
 
-- [ ] **T3.1　实现 Revision 状态机。** 覆盖 `pending_review`、`approved`、`rejected`、`conflict`、`active`；仅允许蓝图规定的迁移，非法迁移返回领域错误且不产生部分写入。
-- [ ] **T3.2　建立不可变 Revision Snapshot。** 提案固定 `base_revision_id`、文件清单、Blob 摘要、完整 `commit_message` 和 Token 元数据；后续读取与 Diff 不受新版本提交影响。
-- [ ] **T3.3　实现三方合并。** 以 Base、当前 Active、Incoming 为三方输入；无同行冲突时生成待审 Snapshot，有冲突时进入 `conflict` 并保存路径与冲突行摘要。
-- [ ] **T3.4　实现冲突解决领域服务。** 校验 `resolutions` 的路径和内容/OSS Key，重新计算 SHA-256、Token 与文件差异，完成后把 Revision 重新置为 `pending_review`。
-- [ ] **T3.5　实现文件级 Token Diff。** 对新增、修改、删除文件计算增减量，为 Review Queue 提供 `+320 / -45 tokens` 一类紧凑统计，并与预计算结果一致。
-- [ ] **T3.6　实现人类审批服务。** Web 人类管理员可填写评论并 Approve、Approve & Activate Now 或 Reject；审批记录保存评论与操作者，Agent Tool 不得调用审批写接口。
-- [ ] **T3.7　实现原子激活。** 在单个数据库事务中锁定目标 Revision，强校验 `status == 'approved'`，切换 `projects.active_revision_id` 并更新目标状态；并发激活不得激活错误 Project 或过期 Revision。
-- [ ] **T3.8　定义历史 Active 的表示。** 以 `projects.active_revision_id` 作为当前版本唯一判据，保留历史 Revision 的可审查性，避免通过残留状态误判当前 Active。
+- [x] **T3.1　实现 Revision 状态机。** 覆盖 `pending_review`、`approved`、`rejected`、`conflict`、`active`；仅允许蓝图规定的迁移，非法迁移返回领域错误且不产生部分写入。
+- [x] **T3.2　建立不可变 Revision Snapshot。** 提案固定 `base_revision_id`、文件清单、Blob 摘要、完整 `commit_message` 和 Token 元数据；后续读取与 Diff 不受新版本提交影响。
+- [x] **T3.3　实现三方合并。** 以 Base、当前 Active、Incoming 为三方输入；无同行冲突时生成待审 Snapshot，有冲突时进入 `conflict` 并保存路径与冲突行摘要。
+- [x] **T3.4　实现冲突解决领域服务。** 校验 `resolutions` 的路径和内容/OSS Key，重新计算 SHA-256、Token 与文件差异，完成后把 Revision 重新置为 `pending_review`。
+- [x] **T3.5　实现文件级 Token Diff。** 对新增、修改、删除文件计算增减量，为 Review Queue 提供 `+320 / -45 tokens` 一类紧凑统计，并与预计算结果一致。
+- [x] **T3.6　实现人类审批服务。** Web 人类管理员可填写评论并 Approve、Approve & Activate Now 或 Reject；审批记录保存评论与操作者，Agent Tool 不得调用审批写接口。
+- [x] **T3.7　实现原子激活。** 在单个数据库事务中锁定目标 Revision，强校验 `status == 'approved'`，切换 `projects.active_revision_id` 并更新目标状态；并发激活不得激活错误 Project 或过期 Revision。
+- [x] **T3.8　定义历史 Active 的表示。** 以 `projects.active_revision_id` 作为当前版本唯一判据，保留历史 Revision 的可审查性，避免通过残留状态误判当前 Active。
 
 **出口验收**
 
-- [ ] 单元测试覆盖所有合法/非法状态迁移和 Base/Active/Incoming 三方组合。
+- [x] 单元测试覆盖所有合法/非法状态迁移和 Base/Active/Incoming 三方组合。
 - [ ] 两个并发激活请求不会造成 Project 指针与 Revision 状态不一致。
-- [ ] `pending_review`、`rejected`、`conflict` Revision 均不能绕过 Web 审批被激活。
+- [x] `pending_review`、`rejected`、`conflict` Revision 均不能绕过 Web 审批被激活。
 - [ ] MCP 与 Web 获取到完全一致的 Diff、冲突和 Token 统计。
 
 ## M4　只读 `/mcp`
 
 **目标：** 让客户端以固定地址或项目 Slug 地址读取当前 Active Revision，并尽量降低上下文 Token 消耗。
 
-- [ ] **T4.1　挂载只读 MCP 入口。** 配置 `/mcp` 与 `/mcp/projects/{slug}` 的 Streamable HTTP（`rmcp` v3.11.0、`json_response: true`），统一接入 M2 中间件。
-- [ ] **T4.2　实现 `skills/list` 与 `skills/get`。** 按 SEP-2640 契约支持 `cursor` / `uri`，只暴露当前 Active Revision 下 `skills/<name>/SKILL.md` 的 `skill://` URI、YAML Frontmatter 和附属文件 `{ uri, digest, size }` 清单。
-- [ ] **T4.3　实现 `resources/read` 与 `resources/directory/read`。** 按 URI 读取 PG 中的 Markdown 原文或目录内容；非文本大附件返回/重定向至 OSS 签名链接，并校验 URI 属于当前 Project/Active Revision。
-- [ ] **T4.4　实现 `inspect_workspace`。** 支持可选 `kind_filter`，以紧凑树状文本返回 `CLAUDE.md`、`AGENTS.md`、`skills/*`、`agents/*` 的路径、一行描述和文件总 Token 数。
-- [ ] **T4.5　实现 `read_slice`。** 支持 `path`、`mode: outline | section | full`、可选 `section` 与 `max_tokens`；Outline 只含 H1—H3 和各节 Token 数，Section 只返回指定章节，Full 遵守 Token 上限并明确截断结果。
-- [ ] **T4.6　实现 `pull_bundle_url`。** 支持 `paths[]`、`local_target_dir`、`format: tar_gz | single`，生成最小权限、短时效的 Presigned GET URL，以及经过 Shell 安全转义的下载/解包命令。
-- [ ] **T4.7　收紧响应 Schema。** 所有结构体使用紧凑字段；列表游标、空结果、缺失章节、过大响应和 OSS 重定向均有稳定契约，不返回内部数据库行或冗余对象图。
+- [x] **T4.1　挂载只读 MCP 入口。** 配置 `/mcp` 与 `/mcp/projects/{slug}` 的 Streamable HTTP（`rmcp` v3.11.0、`json_response: true`），统一接入 M2 中间件。
+- [x] **T4.2　实现 `skills/list` 与 `skills/get`。** 按 SEP-2640 契约支持 `cursor` / `uri`，只暴露当前 Active Revision 下 `skills/<name>/SKILL.md` 的 `skill://` URI、YAML Frontmatter 和附属文件 `{ uri, digest, size }` 清单。
+- [x] **T4.3　实现 `resources/read` 与 `resources/directory/read`。** 按 URI 读取 PG 中的 Markdown 原文或目录内容；非文本大附件返回/重定向至 OSS 签名链接，并校验 URI 属于当前 Project/Active Revision。
+- [x] **T4.4　实现 `inspect_workspace`。** 支持可选 `kind_filter`，以紧凑树状文本返回 `CLAUDE.md`、`AGENTS.md`、`skills/*`、`agents/*` 的路径、一行描述和文件总 Token 数。
+- [x] **T4.5　实现 `read_slice`。** 支持 `path`、`mode: outline | section | full`、可选 `section` 与 `max_tokens`；Outline 只含 H1—H3 和各节 Token 数，Section 只返回指定章节，Full 遵守 Token 上限并明确截断结果。
+- [x] **T4.6　实现 `pull_bundle_url`。** 支持 `paths[]`、`local_target_dir`、`format: tar_gz | single`，生成最小权限、短时效的 Presigned GET URL，以及经过 Shell 安全转义的下载/解包命令。
+- [x] **T4.7　收紧响应 Schema。** 所有结构体使用紧凑字段；列表游标、空结果、缺失章节、过大响应和 OSS 重定向均有稳定契约，不返回内部数据库行或冗余对象图。
 - [ ] **T4.8　建立 MCP 合约与 Token 回归测试。** 固定典型响应 Snapshot，验证字段、URI、Digest、Token 数和分页稳定性；发现响应体积异常增长时使测试失败。
 
 **出口验收**
@@ -129,21 +129,21 @@
 
 **目标：** 完成「上传/补丁 → 提案 → 人类审批 → Agent 激活」的受控闭环。
 
-- [ ] **T5.1　挂载管理 MCP 入口。** 配置 `/admin/mcp` 与 `/admin/mcp/projects/{slug}` 的 Streamable HTTP（`json_response: true`），复用项目解析并执行管理 Scope 校验。
-- [ ] **T5.2　实现 `stage_upload_urls`。** 接收可选 `project?` 和 `files: [{ remote_path, local_path_hint }]`，创建 `transfer_sessions`，返回逐文件 Presigned PUT URL 与安全的 `curl -X PUT -T ...` 批量指令。
-- [ ] **T5.3　实现 `propose_revision`。** 支持 `session_id?`、`inline_patches?`、`base_revision_id`、`commit_message`；后端拉取 OSS 暂存文件、校验 SHA-256、计算 Token，再调用 M3 三方合并。
-- [ ] **T5.4　实现提案结果契约。** 无冲突返回 `pending_review` 和 `revision_id`；有同行冲突返回 `conflict` 及紧凑冲突行摘要，不返回整份冗余文件。
-- [ ] **T5.5　实现 `check_review_status`。** 按 `revision_id` 返回真实当前状态（`pending_review / approved / rejected / conflict / active`）及人类审查员 `comment`，并校验 Revision 属于当前 Project。
-- [ ] **T5.6　实现 `activate_revision`。** 要求 `admin:activate`，只调用 M3 原子激活服务；任何非 `approved` 状态都必须失败，且不能通过 Tool 参数覆盖。
-- [ ] **T5.7　实现 `resolve_conflict`。** 接收 `revision_id`、`resolutions: [{ path, resolved_content_or_oss_key }]`、`commit_message`，仅处理当前 Project 的 `conflict` Revision，成功后重新进入 `pending_review`。
-- [ ] **T5.8　实现 `manage_platform`。** 支持 `create_project`、`issue_api_key`、`revoke_api_key`、`list_users`，要求 `admin:platform`；API Key 明文仅在签发响应中展示一次，列表不返回秘密。
-- [ ] **T5.9　增加审计与失败清理。** 记录提案、冲突解决、激活和平台管理操作者及结果；失败上传、过期会话和无效暂存对象可按生命周期清理，不影响已固化 Revision。
+- [x] **T5.1　挂载管理 MCP 入口。** 配置 `/admin/mcp` 与 `/admin/mcp/projects/{slug}` 的 Streamable HTTP（`json_response: true`），复用项目解析并执行管理 Scope 校验。
+- [x] **T5.2　实现 `stage_upload_urls`。** 接收可选 `project?` 和 `files: [{ remote_path, local_path_hint }]`，创建 `transfer_sessions`，返回逐文件 Presigned PUT URL 与安全的 `curl -X PUT -T ...` 批量指令。
+- [x] **T5.3　实现 `propose_revision`。** 支持 `session_id?`、`inline_patches?`、`base_revision_id`、`commit_message`；后端拉取 OSS 暂存文件、校验 SHA-256、计算 Token，再调用 M3 三方合并。
+- [x] **T5.4　实现提案结果契约。** 无冲突返回 `pending_review` 和 `revision_id`；有同行冲突返回 `conflict` 及紧凑冲突行摘要，不返回整份冗余文件。
+- [x] **T5.5　实现 `check_review_status`。** 按 `revision_id` 返回真实当前状态（`pending_review / approved / rejected / conflict / active`）及人类审查员 `comment`，并校验 Revision 属于当前 Project。
+- [x] **T5.6　实现 `activate_revision`。** 要求 `admin:activate`，只调用 M3 原子激活服务；任何非 `approved` 状态都必须失败，且不能通过 Tool 参数覆盖。
+- [x] **T5.7　实现 `resolve_conflict`。** 接收 `revision_id`、`resolutions: [{ path, resolved_content_or_oss_key }]`、`commit_message`，仅处理当前 Project 的 `conflict` Revision，成功后重新进入 `pending_review`。
+- [x] **T5.8　实现 `manage_platform`。** 支持 `create_project`、`issue_api_key`、`revoke_api_key`、`list_users`，要求 `admin:platform`；API Key 明文仅在签发响应中展示一次，列表不返回秘密。
+- [x] **T5.9　增加审计与失败清理。** 记录提案、冲突解决、激活和平台管理操作者及结果；失败上传、过期会话和无效暂存对象可按生命周期清理，不影响已固化 Revision。
 
 **出口验收**
 
-- [ ] OSS 上传与 Inline Patch 两条路径均可生成待审 Revision。
-- [ ] Agent 无法直接 Approve；未审批、已拒绝或有冲突的 Revision 激活均失败。
-- [ ] 冲突解决后必须重新经过人类审批，才能激活。
+- [x] OSS 上传与 Inline Patch 两条路径均可生成待审 Revision。
+- [x] Agent 无法直接 Approve；未审批、已拒绝或有冲突的 Revision 激活均失败。
+- [x] 冲突解决后必须重新经过人类审批，才能激活。
 - [ ] 吊销 API Key 后，对应读取和管理调用均失效；平台管理 Action 均受 Scope 与 Project 边界约束。
 
 ## M6　Web 工作台
@@ -174,13 +174,13 @@
 **目标：** 把构建、质量、安全和端到端流程固化为可重复执行的发布门禁。
 
 - [ ] **T7.1　实现 `cargo xtask build-web`。** 在 `web/` 下执行 `bun install && bun run build`，将 TanStack SPA 产物输出到 `crates/server/static/`；重复构建结果一致，失败时返回非零状态。
-- [ ] **T7.2　实现 Axum 静态托管。** 正确提供 SPA 静态资源与前端路由 Fallback，同时确保 `/mcp`、`/admin/mcp` 及项目路径不会被 SPA Fallback 吞掉。
+- [x] **T7.2　实现 Axum 静态托管。** 正确提供 SPA 静态资源与前端路由 Fallback，同时确保 `/mcp`、`/admin/mcp` 及项目路径不会被 SPA Fallback 吞掉。
 - [ ] **T7.3　配置一键 Pre-commit 门禁。** 配置 `.git/hooks/pre-commit`，串联 `cargo fmt --check`、`cargo clippy -- -D warnings`、`cargo test`、`bun fmt --check`、`bun check`、`bunx oxlint --deny-warnings`、`bun test`。
 - [ ] **T7.4　完成容器发布构建。** 镜像内包含 Rust 服务与已构建 SPA；Compose 仍只包含 PostgreSQL 和 `mcp-registry-server`，启动时执行 Migration/Seed，并配置健康检查与持久化数据卷。
 - [ ] **T7.5　建立分层测试套件。** 单元测试覆盖 Token、Markdown、Diff、状态机；数据库集成测试覆盖事务和权限；OSS 集成测试覆盖签名 URL；MCP 合约测试覆盖双端点；Web E2E 覆盖审批闭环。
 - [ ] **T7.6　执行安全与信任边界检查。** 验证 Scope 默认拒绝、跨项目隔离、路径规范化、Presigned URL 最小权限与短时效、秘密脱敏、上传大小限制，以及生成命令的安全转义。
-- [ ] **T7.7　建立性能与体积基准。** 在固定数据集记录 `resources/read`、Workspace 树、Outline 和 Diff 的延迟与响应体积；验证 PG 原文毫秒级读取目标，防止全量 Token 重算或 N+1 查询。
-- [ ] **T7.8　补齐运行文档。** 说明 Compose 部署、外部 OSS 环境变量、Seed 与默认口令处理、API Key Scope、Claude Code/OpenCode 接入、审批流程、备份恢复和故障排查。
+- [x] **T7.7　建立性能与体积基准。** 在固定数据集记录 `resources/read`、Workspace 树、Outline 和 Diff 的延迟与响应体积；验证 PG 原文毫秒级读取目标，防止全量 Token 重算或 N+1 查询。
+- [x] **T7.8　补齐运行文档。** 说明 Compose 部署、外部 OSS 环境变量、Seed 与默认口令处理、API Key Scope、Claude Code/OpenCode 接入、审批流程、备份恢复和故障排查。
 - [ ] **T7.9　完成干净环境发布演练。** 从不含本地缓存的 Checkout 构建前端和后端，启动 Compose，跑通全部关键 E2E，再生成发布产物与版本记录。
 
 **出口验收**
