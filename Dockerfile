@@ -13,10 +13,10 @@ ENV CARGO_INCREMENTAL=0
 
 FROM chef AS planner
 RUN --mount=type=bind,target=. \
-    cargo chef prepare --recipe-path /app/recipe.json
+    cargo chef prepare --recipe-path /tmp/recipe.json
 
 FROM chef AS builder
-COPY --from=planner /app/recipe.json recipe.json
+COPY --from=planner /tmp/recipe.json recipe.json
 RUN cargo chef cook --release --bin agentry --recipe-path recipe.json
 COPY --exclude=web --exclude=docker-compose*.yml --exclude=Dockerfile* --exclude=README.md . .
 RUN cargo build --release --bin agentry
